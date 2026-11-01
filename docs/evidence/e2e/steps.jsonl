@@ -1,0 +1,51 @@
+{"t":"2026-11-01T20:20:42.725Z","step":"uploaded","proj":"webkit-iphone","id":"c8a1f83677","status":"processing"}
+{"t":"2026-11-01T20:20:58.518Z","step":"processed","proj":"webkit-iphone","status":"ready","error":null,"seconds":15.793,"stages":["processing:decode","processing:separate","processing:analyze","processing:lyrics","processing:encode","processing:done","ready:done"],"timings":{"decode":0.1,"separate":9.4,"analyze":2.2,"lyrics":1.7,"align":0.1,"encode":1.7,"review":0},"device":"cpu","ai":"not_configured"}
+{"t":"2026-11-01T20:20:58.901Z","step":"layout","proj":"webkit-iphone","vw":390,"scrollW":390,"over":[]}
+{"t":"2026-11-01T20:20:59.316Z","step":"analysis","proj":"webkit-iphone","key":"D major","tempo":99.4,"chords":41,"lines":12,"lyrics":"user","stats":{"downloadMs":46,"decodeMs":278,"totalMs":324,"decodedMB":49.8,"bytes":4670328}}
+{"t":"2026-11-01T20:21:03.015Z","step":"playing","proj":"webkit-iphone","playing":true,"ctx":"running","now":3.456,"times":{"bass":3.456,"drums":3.456,"guitar":3.456,"other":3.456,"piano":3.456,"vocals":3.456},"db":-17.5,"spreadMs":0}
+{"t":"2026-11-01T20:21:05.286Z","step":"stems","proj":"webkit-iphone","karaoke":{"vocals":0,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"drumsSolo":{"g":{"vocals":0,"guitar":0,"piano":0,"bass":0,"drums":1,"other":0},"live":{"vocals":0,"guitar":0,"piano":0,"bass":0,"drums":1,"other":0},"db":-64.8},"restored":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1}}
+{"t":"2026-11-01T20:21:06.925Z","step":"transpose","proj":"webkit-iphone","before":"G","semis":2,"engine":"stretch","playing":true,"db":-20.8,"capo":"Now in E\nCapo 2 · play D shapes","err":null,"chordNow":"G"}
+{"t":"2026-11-01T20:21:09.490Z","step":"speed","proj":"webkit-iphone","ratio":0.781,"db":-19.6}
+{"t":"2026-11-01T20:21:16.257Z","step":"loop","proj":"webkit-iphone","loop":[20,24.968],"now":20.968}
+{"t":"2026-11-01T20:21:17.778Z","step":"metronome","proj":"webkit-iphone","metro":{"on":true,"clicks":3},"countIn":{"counting":true,"startsIn":2.48}}
+{"t":"2026-11-01T20:21:25.544Z","step":"edit","proj":"webkit-iphone","segId":"c001","afterUndo":"D"}
+{"t":"2026-11-01T20:21:29.111Z","step":"second-device","proj":"webkit-iphone","room":"6zyjmr","drift1":-0.004,"drift2":-0.002,"hostChord":"D","f2Chord":"D","hostCapo":"Now in D\nNo capo · D shapes","f2Capo":"Now in D\nNo capo · D shapes"}
+{"t":"2026-11-01T20:21:30.169Z","step":"big-screen","proj":"webkit-iphone","cur":"D","line":"D\nWhen \n \nthe \n \nblazing \nG\nsun \n \nis \nD\ngone","now":32.12550000000001,"hostNow":32.128000000000014,"hostChord":"D"}
+{"t":"2026-11-01T20:21:30.172Z","step":"big-screen-space","proj":"webkit-iphone","spaceW":19.75}
+{"t":"2026-11-01T20:21:30.705Z","step":"remote","proj":"webkit-iphone","hostPlaying":true,"hostTr":1}
+{"t":"2026-11-01T20:21:32.386Z","step":"errors","proj":"webkit-iphone","pageErrors":[],"consoleErrors":[],"p2err":[],"appErrors":[]}
+{"t":"2026-11-01T20:21:34.611Z","step":"failed-upload","proj":"webkit-iphone","msg":"not a readable audio file (Invalid data found when processing input)"}
+{"t":"2026-11-01T20:21:35.595Z","step":"uploaded","proj":"chromium-iphone","id":"cab51d2baf","status":"processing"}
+{"t":"2026-11-01T20:21:50.801Z","step":"processed","proj":"chromium-iphone","status":"ready","error":null,"seconds":15.206,"stages":["processing:decode","processing:separate","processing:analyze","processing:lyrics","processing:encode","ready:done"],"timings":{"decode":0.1,"separate":9.4,"analyze":2.2,"lyrics":1.7,"align":0.1,"encode":1.7,"review":0},"device":"cpu","ai":"not_configured"}
+{"t":"2026-11-01T20:21:51.675Z","step":"layout","proj":"chromium-iphone","vw":390,"scrollW":390,"over":[]}
+{"t":"2026-11-01T20:21:52.304Z","step":"analysis","proj":"chromium-iphone","key":"D major","tempo":99.4,"chords":41,"lines":12,"lyrics":"user","stats":{"downloadMs":47,"decodeMs":412,"totalMs":459,"decodedMB":49.8,"bytes":4670328}}
+{"t":"2026-11-01T20:21:56.063Z","step":"playing","proj":"chromium-iphone","playing":true,"ctx":"running","now":3.376,"times":{"bass":3.376,"drums":3.376,"guitar":3.376,"other":3.376,"piano":3.376,"vocals":3.376},"db":-16,"spreadMs":0}
+{"t":"2026-11-01T20:21:58.388Z","step":"stems","proj":"chromium-iphone","karaoke":{"vocals":0,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"drumsSolo":{"g":{"vocals":0,"guitar":0,"piano":0,"bass":0,"drums":1,"other":0},"live":{"vocals":0,"guitar":0,"piano":0,"bass":0,"drums":1,"other":0},"db":-49.3},"restored":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1}}
+{"t":"2026-11-01T20:22:00.024Z","step":"transpose","proj":"chromium-iphone","before":"G","semis":2,"engine":"stretch","playing":true,"db":-28.1,"capo":"Now in E\nCapo 2 · play D shapes","err":null,"chordNow":"D"}
+{"t":"2026-11-01T20:22:02.595Z","step":"speed","proj":"chromium-iphone","ratio":0.78,"db":-19.8}
+{"t":"2026-11-01T20:22:09.474Z","step":"loop","proj":"chromium-iphone","loop":[20,24.996000000000002],"now":20.939999999999998}
+{"t":"2026-11-01T20:22:11.044Z","step":"metronome","proj":"chromium-iphone","metro":{"on":true,"clicks":3},"countIn":{"counting":true,"startsIn":2.5}}
+{"t":"2026-11-01T20:22:18.909Z","step":"edit","proj":"chromium-iphone","segId":"c001","afterUndo":"D"}
+{"t":"2026-11-01T20:22:22.334Z","step":"second-device","proj":"chromium-iphone","room":"j7y34q","drift1":0.015,"drift2":0.023,"hostChord":"D","f2Chord":"D","hostCapo":"Now in D\nNo capo · D shapes","f2Capo":"Now in D\nNo capo · D shapes"}
+{"t":"2026-11-01T20:22:23.336Z","step":"big-screen","proj":"chromium-iphone","cur":"D","line":"D\nWhen \n \nthe \n \nblazing \nG\nsun \n \nis \nD\ngone","now":31.993000000000006,"hostNow":32.012,"hostChord":"D"}
+{"t":"2026-11-01T20:22:23.338Z","step":"big-screen-space","proj":"chromium-iphone","spaceW":19.25}
+{"t":"2026-11-01T20:22:23.764Z","step":"remote","proj":"chromium-iphone","hostPlaying":true,"hostTr":1}
+{"t":"2026-11-01T20:22:25.505Z","step":"errors","proj":"chromium-iphone","pageErrors":[],"consoleErrors":["Failed to load resource: net::ERR_INCOMPLETE_CHUNKED_ENCODING"],"p2err":[],"appErrors":[]}
+{"t":"2026-11-01T20:22:27.705Z","step":"failed-upload","proj":"chromium-iphone","msg":"not a readable audio file (Invalid data found when processing input)"}
+{"t":"2026-11-01T20:22:28.779Z","step":"uploaded","proj":"chromium-desktop","id":"6a4b61e82d","status":"processing"}
+{"t":"2026-11-01T20:22:43.815Z","step":"processed","proj":"chromium-desktop","status":"ready","error":null,"seconds":15.036,"stages":["processing:decode","processing:separate","processing:analyze","processing:lyrics","processing:encode","ready:done"],"timings":{"decode":0.1,"separate":9.1,"analyze":2.2,"lyrics":1.7,"align":0.1,"encode":1.7,"review":0},"device":"cpu","ai":"not_configured"}
+{"t":"2026-11-01T20:22:43.823Z","step":"layout","proj":"chromium-desktop","vw":1366,"scrollW":1366,"over":[]}
+{"t":"2026-11-01T20:22:44.406Z","step":"analysis","proj":"chromium-desktop","key":"D major","tempo":99.4,"chords":41,"lines":12,"lyrics":"user","stats":{"downloadMs":49,"decodeMs":408,"totalMs":457,"decodedMB":49.8,"bytes":4670328}}
+{"t":"2026-11-01T20:22:48.119Z","step":"playing","proj":"chromium-desktop","playing":true,"ctx":"running","now":3.376,"times":{"bass":3.376,"drums":3.376,"guitar":3.376,"other":3.376,"piano":3.376,"vocals":3.376},"db":-15.7,"spreadMs":0}
+{"t":"2026-11-01T20:22:50.347Z","step":"stems","proj":"chromium-desktop","karaoke":{"vocals":0,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"drumsSolo":{"g":{"vocals":0,"guitar":0,"piano":0,"bass":0,"drums":1,"other":0},"live":{"vocals":0,"guitar":0,"piano":0,"bass":0,"drums":1,"other":0},"db":-35.2},"restored":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1}}
+{"t":"2026-11-01T20:22:51.950Z","step":"transpose","proj":"chromium-desktop","before":"G","semis":2,"engine":"stretch","playing":true,"db":-24.8,"capo":"Now in E\nCapo 2 · play D shapes","err":null,"chordNow":"D"}
+{"t":"2026-11-01T20:22:54.503Z","step":"speed","proj":"chromium-desktop","ratio":0.781,"db":-19.3}
+{"t":"2026-11-01T20:23:01.221Z","step":"loop","proj":"chromium-desktop","loop":[20,24.964],"now":20.972}
+{"t":"2026-11-01T20:23:02.676Z","step":"metronome","proj":"chromium-desktop","metro":{"on":true,"clicks":3},"countIn":{"counting":true,"startsIn":2.5}}
+{"t":"2026-11-01T20:23:06.267Z","step":"edit","proj":"chromium-desktop","segId":"c001","afterUndo":"D"}
+{"t":"2026-11-01T20:23:09.513Z","step":"second-device","proj":"chromium-desktop","room":"dj8qmw","drift1":0.013,"drift2":-0.015,"hostChord":"G","f2Chord":"G","hostCapo":"Now in D\nNo capo · D shapes","f2Capo":"Now in D\nNo capo · D shapes"}
+{"t":"2026-11-01T20:23:10.461Z","step":"big-screen","proj":"chromium-desktop","cur":"G","line":"G\nHow \n \nI \nD\nwonder \n \nwhat \nA\nyou \nD\nare","now":27.465500000000006,"hostNow":27.468000000000007,"hostChord":"G"}
+{"t":"2026-11-01T20:23:10.463Z","step":"big-screen-space","proj":"chromium-desktop","spaceW":19.234375}
+{"t":"2026-11-01T20:23:10.843Z","step":"remote","proj":"chromium-desktop","hostPlaying":true,"hostTr":1}
+{"t":"2026-11-01T20:23:12.502Z","step":"errors","proj":"chromium-desktop","pageErrors":[],"consoleErrors":["Failed to load resource: net::ERR_INCOMPLETE_CHUNKED_ENCODING"],"p2err":[],"appErrors":[]}
+{"t":"2026-11-01T20:23:14.590Z","step":"failed-upload","proj":"chromium-desktop","msg":"not a readable audio file (Invalid data found when processing input)"}

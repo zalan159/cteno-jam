@@ -1,0 +1,13 @@
+{
+  "name": "cteno-jam-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests for Cteno Jam (Playwright, WebKit + Chromium, iPhone viewport)",
+  "scripts": {
+    "test": "playwright test",
+    "unit": "node --test ../web/test/"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

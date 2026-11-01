@@ -1,0 +1,14 @@
+name: "Feature request for Jam / Jam 功能建议"
+description: "An improvement to Cteno Jam itself. 给 Cteno Jam 本身提建议。"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: "What would help? / 什么功能会有帮助？"
+    validations:
+      required: true
+  - type: textarea
+    id: scene
+    attributes:
+      label: "When would you use it (party, karaoke, kids, practice)? / 在什么场景用？"

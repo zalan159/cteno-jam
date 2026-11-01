@@ -1,0 +1,15 @@
+# GPU override: CUDA build of PyTorch + one NVIDIA GPU. JAM_DEVICE=auto (the default) uses it
+# automatically and falls back to CPU if the GPU is not visible.
+services:
+  jam:
+    image: cteno-jam:gpu
+    build:
+      args:
+        TORCH_INDEX: cu121
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

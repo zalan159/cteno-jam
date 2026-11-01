@@ -1,0 +1,538 @@
+{
+ "title": "Frère Jacques",
+ "key": "F major",
+ "tempo": 96,
+ "chords": [
+  {
+   "start": 0.0,
+   "end": 8.75,
+   "chord": "F",
+   "beats": 14
+  },
+  {
+   "start": 8.75,
+   "end": 10.0,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 10.0,
+   "end": 11.25,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 11.25,
+   "end": 12.5,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 12.5,
+   "end": 13.75,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 13.75,
+   "end": 15.0,
+   "chord": "Bb",
+   "beats": 2
+  },
+  {
+   "start": 15.0,
+   "end": 16.25,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 16.25,
+   "end": 17.5,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 17.5,
+   "end": 18.75,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 18.75,
+   "end": 20.0,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 20.0,
+   "end": 23.75,
+   "chord": "F",
+   "beats": 6
+  },
+  {
+   "start": 23.75,
+   "end": 25.0,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 25.0,
+   "end": 26.25,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 26.25,
+   "end": 27.5,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 27.5,
+   "end": 33.75,
+   "chord": "F",
+   "beats": 10
+  },
+  {
+   "start": 33.75,
+   "end": 35.0,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 35.0,
+   "end": 36.25,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 36.25,
+   "end": 37.5,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 37.5,
+   "end": 38.75,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 38.75,
+   "end": 40.0,
+   "chord": "Bb",
+   "beats": 2
+  },
+  {
+   "start": 40.0,
+   "end": 41.25,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 41.25,
+   "end": 42.5,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 42.5,
+   "end": 43.75,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 43.75,
+   "end": 45.0,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 45.0,
+   "end": 48.75,
+   "chord": "F",
+   "beats": 6
+  },
+  {
+   "start": 48.75,
+   "end": 50.0,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 50.0,
+   "end": 51.25,
+   "chord": "F",
+   "beats": 2
+  },
+  {
+   "start": 51.25,
+   "end": 52.5,
+   "chord": "C",
+   "beats": 2
+  },
+  {
+   "start": 52.5,
+   "end": 55.0,
+   "chord": "F",
+   "beats": 4
+  }
+ ],
+ "lines": [
+  {
+   "start": 2.5,
+   "units": [
+    {
+     "u": "Frè",
+     "t": 2.5
+    },
+    {
+     "u": "re ",
+     "t": 3.125
+    },
+    {
+     "u": "Jac",
+     "t": 3.75
+    },
+    {
+     "u": "ques ",
+     "t": 4.375
+    }
+   ],
+   "text": "Frère Jacques"
+  },
+  {
+   "start": 5.0,
+   "units": [
+    {
+     "u": "Frè",
+     "t": 5.0
+    },
+    {
+     "u": "re ",
+     "t": 5.625
+    },
+    {
+     "u": "Jac",
+     "t": 6.25
+    },
+    {
+     "u": "ques ",
+     "t": 6.875
+    }
+   ],
+   "text": "Frère Jacques"
+  },
+  {
+   "start": 7.5,
+   "units": [
+    {
+     "u": "Dor",
+     "t": 7.5
+    },
+    {
+     "u": "mez ",
+     "t": 8.125
+    },
+    {
+     "u": "vous ",
+     "t": 8.75
+    }
+   ],
+   "text": "Dormez vous"
+  },
+  {
+   "start": 10.0,
+   "units": [
+    {
+     "u": "Dor",
+     "t": 10.0
+    },
+    {
+     "u": "mez ",
+     "t": 10.625
+    },
+    {
+     "u": "vous ",
+     "t": 11.25
+    }
+   ],
+   "text": "Dormez vous"
+  },
+  {
+   "start": 12.5,
+   "units": [
+    {
+     "u": "Son",
+     "t": 12.5
+    },
+    {
+     "u": "nez ",
+     "t": 13.125
+    },
+    {
+     "u": "les ",
+     "t": 13.75
+    },
+    {
+     "u": "ma",
+     "t": 14.375
+    },
+    {
+     "u": "ti",
+     "t": 15.0
+    },
+    {
+     "u": "nes ",
+     "t": 15.625
+    }
+   ],
+   "text": "Sonnez les matines"
+  },
+  {
+   "start": 17.5,
+   "units": [
+    {
+     "u": "Son",
+     "t": 17.5
+    },
+    {
+     "u": "nez ",
+     "t": 18.125
+    },
+    {
+     "u": "les ",
+     "t": 18.75
+    },
+    {
+     "u": "ma",
+     "t": 19.375
+    },
+    {
+     "u": "ti",
+     "t": 20.0
+    },
+    {
+     "u": "nes ",
+     "t": 20.625
+    }
+   ],
+   "text": "Sonnez les matines"
+  },
+  {
+   "start": 22.5,
+   "units": [
+    {
+     "u": "Ding ",
+     "t": 22.5
+    },
+    {
+     "u": "dang ",
+     "t": 23.125
+    },
+    {
+     "u": "dong ",
+     "t": 23.75
+    }
+   ],
+   "text": "Ding dang dong"
+  },
+  {
+   "start": 25.0,
+   "units": [
+    {
+     "u": "Ding ",
+     "t": 25.0
+    },
+    {
+     "u": "dang ",
+     "t": 25.625
+    },
+    {
+     "u": "dong ",
+     "t": 26.25
+    }
+   ],
+   "text": "Ding dang dong"
+  },
+  {
+   "start": 27.5,
+   "units": [
+    {
+     "u": "Frè",
+     "t": 27.5
+    },
+    {
+     "u": "re ",
+     "t": 28.125
+    },
+    {
+     "u": "Jac",
+     "t": 28.75
+    },
+    {
+     "u": "ques ",
+     "t": 29.375
+    }
+   ],
+   "text": "Frère Jacques"
+  },
+  {
+   "start": 30.0,
+   "units": [
+    {
+     "u": "Frè",
+     "t": 30.0
+    },
+    {
+     "u": "re ",
+     "t": 30.625
+    },
+    {
+     "u": "Jac",
+     "t": 31.25
+    },
+    {
+     "u": "ques ",
+     "t": 31.875
+    }
+   ],
+   "text": "Frère Jacques"
+  },
+  {
+   "start": 32.5,
+   "units": [
+    {
+     "u": "Dor",
+     "t": 32.5
+    },
+    {
+     "u": "mez ",
+     "t": 33.125
+    },
+    {
+     "u": "vous ",
+     "t": 33.75
+    }
+   ],
+   "text": "Dormez vous"
+  },
+  {
+   "start": 35.0,
+   "units": [
+    {
+     "u": "Dor",
+     "t": 35.0
+    },
+    {
+     "u": "mez ",
+     "t": 35.625
+    },
+    {
+     "u": "vous ",
+     "t": 36.25
+    }
+   ],
+   "text": "Dormez vous"
+  },
+  {
+   "start": 37.5,
+   "units": [
+    {
+     "u": "Son",
+     "t": 37.5
+    },
+    {
+     "u": "nez ",
+     "t": 38.125
+    },
+    {
+     "u": "les ",
+     "t": 38.75
+    },
+    {
+     "u": "ma",
+     "t": 39.375
+    },
+    {
+     "u": "ti",
+     "t": 40.0
+    },
+    {
+     "u": "nes ",
+     "t": 40.625
+    }
+   ],
+   "text": "Sonnez les matines"
+  },
+  {
+   "start": 42.5,
+   "units": [
+    {
+     "u": "Son",
+     "t": 42.5
+    },
+    {
+     "u": "nez ",
+     "t": 43.125
+    },
+    {
+     "u": "les ",
+     "t": 43.75
+    },
+    {
+     "u": "ma",
+     "t": 44.375
+    },
+    {
+     "u": "ti",
+     "t": 45.0
+    },
+    {
+     "u": "nes ",
+     "t": 45.625
+    }
+   ],
+   "text": "Sonnez les matines"
+  },
+  {
+   "start": 47.5,
+   "units": [
+    {
+     "u": "Ding ",
+     "t": 47.5
+    },
+    {
+     "u": "dang ",
+     "t": 48.125
+    },
+    {
+     "u": "dong ",
+     "t": 48.75
+    }
+   ],
+   "text": "Ding dang dong"
+  },
+  {
+   "start": 50.0,
+   "units": [
+    {
+     "u": "Ding ",
+     "t": 50.0
+    },
+    {
+     "u": "dang ",
+     "t": 50.625
+    },
+    {
+     "u": "dong ",
+     "t": 51.25
+    }
+   ],
+   "text": "Ding dang dong"
+  }
+ ],
+ "duration": 57.5,
+ "license": "CC0-1.0",
+ "credits": "Traditional French nursery round (18th century). Public domain. Arrangement and synthesis: Cteno Jam contributors, CC0 1.0."
+}

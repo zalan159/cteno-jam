@@ -1,0 +1,2 @@
+udid=3E0D06D8-CBE3-4A9C-ACA5-3217F0739B05 runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-2
+simulator deleted: 0 left

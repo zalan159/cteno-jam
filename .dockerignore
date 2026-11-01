@@ -1,0 +1,11 @@
+.git
+.cteno
+.slave-out
+data
+dist
+docs
+e2e
+**/node_modules
+**/__pycache__
+**/venv
+demo/source

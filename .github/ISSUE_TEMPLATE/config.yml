@@ -1,0 +1,4 @@
+blank_issues_enabled: false
+# Point "url" at your repository's Discussions page after publishing, e.g.
+#   https://github.com/<owner>/cteno-jam/discussions
+contact_links: []

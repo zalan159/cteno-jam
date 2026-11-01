@@ -1,0 +1,71 @@
+udid=3E0D06D8-CBE3-4A9C-ACA5-3217F0739B05 runtime=com.apple.CoreSimulator.SimRuntime.iOS-26-2
+forwarder 200
+safari opened (try 1)
+webinspector socket: /private/tmp/com.apple.launchd.r1oSz58XyG/com.apple.webinspectord_sim.socket
+[]
+rec0=1793564726058 2026-11-02 04:24:26.898 swift-frontend[47705:14217138] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+WI=ws://127.0.0.1:9222/devtools/page/1
+{"t":0.1,"step":"loaded","ok":true,"url":"http://127.0.0.1:8765/#/s/demo-twinkle","stats":{"downloadMs":203,"decodeMs":401,"totalMs":604,"decodedMB":49.8,"bytes":4670328},"ua":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1","audioSession":"playback","secure":true,"msg":"已就绪（0.6 秒），点 ▶ 播放"}
+{"t":1.64,"step":"before_play","db":-120}
+{"t":3.64,"step":"play"}
+{"t":8.73,"step":"playing","now":7.116,"playing":true,"ctx":"running","engine":"direct","semis":0,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-20.8}
+{"t":8.75,"step":"karaoke_on"}
+{"t":12.76,"step":"karaoke","now":11.148,"playing":true,"ctx":"running","engine":"direct","semis":0,"rate":1,"spreadMs":0,"gains":{"vocals":0,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-20.4}
+{"t":12.76,"step":"karaoke_off"}
+{"t":16.76,"step":"full_again","now":15.148,"playing":true,"ctx":"running","engine":"direct","semis":0,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-18.2}
+{"t":16.76,"step":"drums_solo_on"}
+{"t":20.77,"step":"drums_solo","now":19.156,"playing":true,"ctx":"running","engine":"direct","semis":0,"rate":1,"spreadMs":0,"gains":{"vocals":0,"guitar":0,"piano":0,"bass":0,"drums":1,"other":0},"db":-69.1}
+{"t":20.77,"step":"transpose_up2"}
+{"t":25.3,"step":"transposed","now":23.576,"playing":true,"ctx":"running","engine":"stretch","semis":2,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-18.9,"capo":"当前 E 调\n夹 2 品 · 按 D 调指法","err":null}
+{"t":25.34,"step":"speed_08"}
+{"t":29.35,"step":"slow","now":26.766,"playing":true,"ctx":"running","engine":"stretch","semis":2,"rate":0.8,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-17.2,"ratio":0.783}
+{"t":29.36,"step":"pause"}
+{"t":32.36,"step":"paused","now":26.766,"playing":false,"ctx":"running","engine":"stretch","semis":2,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-180}
+{"t":32.36,"step":"resume"}
+{"t":35.37,"step":"resumed","now":29.694,"playing":true,"ctx":"running","engine":"stretch","semis":2,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-15.6}
+{"t":35.37,"step":"stage_open"}
+{"t":41.89,"step":"stage_playing","now":4.924,"playing":true,"ctx":"running","engine":"stretch","semis":2,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-14.8,"chord":"G","line":"D\nTwinkle \n \ntwinkle \nG\nlittle \nD\nstar"}
+{"t":43.94,"step":"end","errors":[],"consoleErrors":[]}
+Recording completed. Writing to disk.
+
+Wrote video to: /tmp/jam-sim-video.68F6/rec.mov
+2026-11-02 04:24:26.898 swift-frontend[47705:14217138] Audio files cannot be non-interleaved. Ignoring setting AVLinearPCMIsNonInterleaved YES.
+recording 140.0s -> <work>/docs/evidence/ios/system-audio.wav
+frames=7152960 peak=0.3124519 copyErrors=0
+recording offset vs steps: 59.36 s (first sound at 63.00 s in the file)
+before_play    mean= -91.0 dB  max= -91.0 dB
+playing        mean= -26.8 dB  max= -13.2 dB
+karaoke        mean= -28.2 dB  max= -14.0 dB
+full_again     mean= -27.2 dB  max= -12.8 dB
+drums_solo     mean= -36.5 dB  max= -19.0 dB
+transposed     mean= -26.0 dB  max= -12.5 dB
+slow           mean= -27.4 dB  max= -15.0 dB
+paused         mean= -91.0 dB  max= -91.0 dB
+resumed        mean= -25.9 dB  max= -11.3 dB
+stage_playing  mean= -26.0 dB  max= -13.3 dB
+PASS  before_play is silent
+PASS  playing has sound
+PASS  karaoke has sound
+PASS  full_again has sound
+PASS  transposed has sound
+PASS  slow has sound
+PASS  resumed has sound
+PASS  stage_playing has sound
+PASS  drums_solo quieter than full mix
+PASS  paused is silent
+RESULT PASS
+total 3056
+drwxr-xr-x  13 zal  staff     416 Nov  2 04:26 .
+drwxr-xr-x   8 zal  staff     256 Nov  2 04:23 ..
+-rw-r--r--   1 zal  staff  230885 Nov  2 04:25 01-loaded.png
+-rw-r--r--   1 zal  staff  220760 Nov  2 04:25 02-playing.png
+-rw-r--r--   1 zal  staff  219398 Nov  2 04:25 03-transposed.png
+-rw-r--r--   1 zal  staff  162226 Nov  2 04:26 04-big-screen.png
+-rw-r--r--   1 zal  staff     801 Nov  2 04:26 audio-segments.txt
+-rw-r--r--   1 zal  staff       2 Nov  2 04:24 inspector-pages.json
+-rw-r--r--   1 zal  staff      94 Nov  2 04:23 sim.txt
+-rw-r--r--   1 zal  staff    2781 Nov  2 04:26 simdrive.log
+-rw-r--r--   1 zal  staff  257543 Nov  2 04:26 simulator-recording.mp4
+-rw-r--r--   1 zal  staff    2781 Nov  2 04:26 steps.jsonl
+-rw-r--r--   1 zal  staff  400556 Nov  2 04:26 system-audio.mp3
+simulator deleted: 0 left

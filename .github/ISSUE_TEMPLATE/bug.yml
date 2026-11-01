@@ -1,0 +1,23 @@
+name: "Bug report / 问题反馈"
+description: "Something in Cteno Jam does not work. Cteno Jam 有地方不对。"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: "What happened, and what did you expect? / 发生了什么，本来期望怎样？"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to reproduce / 复现步骤"
+  - type: input
+    id: env
+    attributes:
+      label: "Device, browser, deployment (Docker CPU/GPU, static) / 设备、浏览器、部署方式"
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Error text or logs (no API keys, no copyrighted audio) / 报错或日志（不要贴 key，不要传有版权的音频）"
+      render: text

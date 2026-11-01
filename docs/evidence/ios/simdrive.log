@@ -1,0 +1,21 @@
+{"t":0.1,"step":"loaded","ok":true,"url":"http://127.0.0.1:8765/#/s/demo-twinkle","stats":{"downloadMs":203,"decodeMs":401,"totalMs":604,"decodedMB":49.8,"bytes":4670328},"ua":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1","audioSession":"playback","secure":true,"msg":"已就绪（0.6 秒），点 ▶ 播放"}
+{"t":1.64,"step":"before_play","db":-120}
+{"t":3.64,"step":"play"}
+{"t":8.73,"step":"playing","now":7.116,"playing":true,"ctx":"running","engine":"direct","semis":0,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-20.8}
+{"t":8.75,"step":"karaoke_on"}
+{"t":12.76,"step":"karaoke","now":11.148,"playing":true,"ctx":"running","engine":"direct","semis":0,"rate":1,"spreadMs":0,"gains":{"vocals":0,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-20.4}
+{"t":12.76,"step":"karaoke_off"}
+{"t":16.76,"step":"full_again","now":15.148,"playing":true,"ctx":"running","engine":"direct","semis":0,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-18.2}
+{"t":16.76,"step":"drums_solo_on"}
+{"t":20.77,"step":"drums_solo","now":19.156,"playing":true,"ctx":"running","engine":"direct","semis":0,"rate":1,"spreadMs":0,"gains":{"vocals":0,"guitar":0,"piano":0,"bass":0,"drums":1,"other":0},"db":-69.1}
+{"t":20.77,"step":"transpose_up2"}
+{"t":25.3,"step":"transposed","now":23.576,"playing":true,"ctx":"running","engine":"stretch","semis":2,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-18.9,"capo":"当前 E 调\n夹 2 品 · 按 D 调指法","err":null}
+{"t":25.34,"step":"speed_08"}
+{"t":29.35,"step":"slow","now":26.766,"playing":true,"ctx":"running","engine":"stretch","semis":2,"rate":0.8,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-17.2,"ratio":0.783}
+{"t":29.36,"step":"pause"}
+{"t":32.36,"step":"paused","now":26.766,"playing":false,"ctx":"running","engine":"stretch","semis":2,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-180}
+{"t":32.36,"step":"resume"}
+{"t":35.37,"step":"resumed","now":29.694,"playing":true,"ctx":"running","engine":"stretch","semis":2,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-15.6}
+{"t":35.37,"step":"stage_open"}
+{"t":41.89,"step":"stage_playing","now":4.924,"playing":true,"ctx":"running","engine":"stretch","semis":2,"rate":1,"spreadMs":0,"gains":{"vocals":1,"guitar":1,"piano":1,"bass":1,"drums":1,"other":1},"db":-14.8,"chord":"G","line":"D\nTwinkle \n \ntwinkle \nG\nlittle \nD\nstar"}
+{"t":43.94,"step":"end","errors":[],"consoleErrors":[]}

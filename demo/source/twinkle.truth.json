@@ -1,0 +1,666 @@
+{
+ "title": "Twinkle, Twinkle, Little Star",
+ "key": "D major",
+ "tempo": 100,
+ "chords": [
+  {
+   "start": 0.0,
+   "end": 4.8,
+   "chord": "D",
+   "beats": 8
+  },
+  {
+   "start": 4.8,
+   "end": 6.0,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 6.0,
+   "end": 7.2,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 7.2,
+   "end": 8.4,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 8.4,
+   "end": 9.6,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 9.6,
+   "end": 10.8,
+   "chord": "A",
+   "beats": 2
+  },
+  {
+   "start": 10.8,
+   "end": 13.2,
+   "chord": "D",
+   "beats": 4
+  },
+  {
+   "start": 13.2,
+   "end": 14.4,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 14.4,
+   "end": 15.6,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 15.6,
+   "end": 16.8,
+   "chord": "A",
+   "beats": 2
+  },
+  {
+   "start": 16.8,
+   "end": 18.0,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 18.0,
+   "end": 19.2,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 19.2,
+   "end": 20.4,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 20.4,
+   "end": 21.6,
+   "chord": "A",
+   "beats": 2
+  },
+  {
+   "start": 21.6,
+   "end": 24.0,
+   "chord": "D",
+   "beats": 4
+  },
+  {
+   "start": 24.0,
+   "end": 25.2,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 25.2,
+   "end": 26.4,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 26.4,
+   "end": 27.6,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 27.6,
+   "end": 28.8,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 28.8,
+   "end": 30.0,
+   "chord": "A",
+   "beats": 2
+  },
+  {
+   "start": 30.0,
+   "end": 33.6,
+   "chord": "D",
+   "beats": 6
+  },
+  {
+   "start": 33.6,
+   "end": 34.8,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 34.8,
+   "end": 36.0,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 36.0,
+   "end": 37.2,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 37.2,
+   "end": 38.4,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 38.4,
+   "end": 39.6,
+   "chord": "A",
+   "beats": 2
+  },
+  {
+   "start": 39.6,
+   "end": 42.0,
+   "chord": "D",
+   "beats": 4
+  },
+  {
+   "start": 42.0,
+   "end": 43.2,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 43.2,
+   "end": 44.4,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 44.4,
+   "end": 45.6,
+   "chord": "A",
+   "beats": 2
+  },
+  {
+   "start": 45.6,
+   "end": 46.8,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 46.8,
+   "end": 48.0,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 48.0,
+   "end": 49.2,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 49.2,
+   "end": 50.4,
+   "chord": "A",
+   "beats": 2
+  },
+  {
+   "start": 50.4,
+   "end": 52.8,
+   "chord": "D",
+   "beats": 4
+  },
+  {
+   "start": 52.8,
+   "end": 54.0,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 54.0,
+   "end": 55.2,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 55.2,
+   "end": 56.4,
+   "chord": "G",
+   "beats": 2
+  },
+  {
+   "start": 56.4,
+   "end": 57.6,
+   "chord": "D",
+   "beats": 2
+  },
+  {
+   "start": 57.6,
+   "end": 58.8,
+   "chord": "A",
+   "beats": 2
+  },
+  {
+   "start": 58.8,
+   "end": 62.4,
+   "chord": "D",
+   "beats": 6
+  }
+ ],
+ "lines": [
+  {
+   "start": 2.4,
+   "units": [
+    {
+     "u": "Twin",
+     "t": 2.4
+    },
+    {
+     "u": "kle ",
+     "t": 3.0
+    },
+    {
+     "u": "twin",
+     "t": 3.6
+    },
+    {
+     "u": "kle ",
+     "t": 4.2
+    },
+    {
+     "u": "lit",
+     "t": 4.8
+    },
+    {
+     "u": "tle ",
+     "t": 5.4
+    },
+    {
+     "u": "star ",
+     "t": 6.0
+    }
+   ],
+   "text": "Twinkle twinkle little star"
+  },
+  {
+   "start": 7.2,
+   "units": [
+    {
+     "u": "How ",
+     "t": 7.2
+    },
+    {
+     "u": "I ",
+     "t": 7.8
+    },
+    {
+     "u": "won",
+     "t": 8.4
+    },
+    {
+     "u": "der ",
+     "t": 9.0
+    },
+    {
+     "u": "what ",
+     "t": 9.6
+    },
+    {
+     "u": "you ",
+     "t": 10.2
+    },
+    {
+     "u": "are ",
+     "t": 10.8
+    }
+   ],
+   "text": "How I wonder what you are"
+  },
+  {
+   "start": 12.0,
+   "units": [
+    {
+     "u": "Up ",
+     "t": 12.0
+    },
+    {
+     "u": "a",
+     "t": 12.6
+    },
+    {
+     "u": "bove ",
+     "t": 13.2
+    },
+    {
+     "u": "the ",
+     "t": 13.8
+    },
+    {
+     "u": "world ",
+     "t": 14.4
+    },
+    {
+     "u": "so ",
+     "t": 15.0
+    },
+    {
+     "u": "high ",
+     "t": 15.6
+    }
+   ],
+   "text": "Up above the world so high"
+  },
+  {
+   "start": 16.8,
+   "units": [
+    {
+     "u": "Like ",
+     "t": 16.8
+    },
+    {
+     "u": "a ",
+     "t": 17.4
+    },
+    {
+     "u": "dia",
+     "t": 18.0
+    },
+    {
+     "u": "mond ",
+     "t": 18.6
+    },
+    {
+     "u": "in ",
+     "t": 19.2
+    },
+    {
+     "u": "the ",
+     "t": 19.8
+    },
+    {
+     "u": "sky ",
+     "t": 20.4
+    }
+   ],
+   "text": "Like a diamond in the sky"
+  },
+  {
+   "start": 21.6,
+   "units": [
+    {
+     "u": "Twin",
+     "t": 21.6
+    },
+    {
+     "u": "kle ",
+     "t": 22.2
+    },
+    {
+     "u": "twin",
+     "t": 22.8
+    },
+    {
+     "u": "kle ",
+     "t": 23.4
+    },
+    {
+     "u": "lit",
+     "t": 24.0
+    },
+    {
+     "u": "tle ",
+     "t": 24.6
+    },
+    {
+     "u": "star ",
+     "t": 25.2
+    }
+   ],
+   "text": "Twinkle twinkle little star"
+  },
+  {
+   "start": 26.4,
+   "units": [
+    {
+     "u": "How ",
+     "t": 26.4
+    },
+    {
+     "u": "I ",
+     "t": 27.0
+    },
+    {
+     "u": "won",
+     "t": 27.6
+    },
+    {
+     "u": "der ",
+     "t": 28.2
+    },
+    {
+     "u": "what ",
+     "t": 28.8
+    },
+    {
+     "u": "you ",
+     "t": 29.4
+    },
+    {
+     "u": "are ",
+     "t": 30.0
+    }
+   ],
+   "text": "How I wonder what you are"
+  },
+  {
+   "start": 31.2,
+   "units": [
+    {
+     "u": "When ",
+     "t": 31.2
+    },
+    {
+     "u": "the ",
+     "t": 31.8
+    },
+    {
+     "u": "bla",
+     "t": 32.4
+    },
+    {
+     "u": "zing ",
+     "t": 33.0
+    },
+    {
+     "u": "sun ",
+     "t": 33.6
+    },
+    {
+     "u": "is ",
+     "t": 34.2
+    },
+    {
+     "u": "gone ",
+     "t": 34.8
+    }
+   ],
+   "text": "When the blazing sun is gone"
+  },
+  {
+   "start": 36.0,
+   "units": [
+    {
+     "u": "When ",
+     "t": 36.0
+    },
+    {
+     "u": "he ",
+     "t": 36.6
+    },
+    {
+     "u": "noth",
+     "t": 37.2
+    },
+    {
+     "u": "ing ",
+     "t": 37.8
+    },
+    {
+     "u": "shines ",
+     "t": 38.4
+    },
+    {
+     "u": "up",
+     "t": 39.0
+    },
+    {
+     "u": "on ",
+     "t": 39.6
+    }
+   ],
+   "text": "When he nothing shines upon"
+  },
+  {
+   "start": 40.8,
+   "units": [
+    {
+     "u": "Then ",
+     "t": 40.8
+    },
+    {
+     "u": "you ",
+     "t": 41.4
+    },
+    {
+     "u": "show ",
+     "t": 42.0
+    },
+    {
+     "u": "your ",
+     "t": 42.6
+    },
+    {
+     "u": "lit",
+     "t": 43.2
+    },
+    {
+     "u": "tle ",
+     "t": 43.8
+    },
+    {
+     "u": "light ",
+     "t": 44.4
+    }
+   ],
+   "text": "Then you show your little light"
+  },
+  {
+   "start": 45.6,
+   "units": [
+    {
+     "u": "Twin",
+     "t": 45.6
+    },
+    {
+     "u": "kle ",
+     "t": 46.2
+    },
+    {
+     "u": "twin",
+     "t": 46.8
+    },
+    {
+     "u": "kle ",
+     "t": 47.4
+    },
+    {
+     "u": "all ",
+     "t": 48.0
+    },
+    {
+     "u": "the ",
+     "t": 48.6
+    },
+    {
+     "u": "night ",
+     "t": 49.2
+    }
+   ],
+   "text": "Twinkle twinkle all the night"
+  },
+  {
+   "start": 50.4,
+   "units": [
+    {
+     "u": "Twin",
+     "t": 50.4
+    },
+    {
+     "u": "kle ",
+     "t": 51.0
+    },
+    {
+     "u": "twin",
+     "t": 51.6
+    },
+    {
+     "u": "kle ",
+     "t": 52.2
+    },
+    {
+     "u": "lit",
+     "t": 52.8
+    },
+    {
+     "u": "tle ",
+     "t": 53.4
+    },
+    {
+     "u": "star ",
+     "t": 54.0
+    }
+   ],
+   "text": "Twinkle twinkle little star"
+  },
+  {
+   "start": 55.2,
+   "units": [
+    {
+     "u": "How ",
+     "t": 55.2
+    },
+    {
+     "u": "I ",
+     "t": 55.8
+    },
+    {
+     "u": "won",
+     "t": 56.4
+    },
+    {
+     "u": "der ",
+     "t": 57.0
+    },
+    {
+     "u": "what ",
+     "t": 57.6
+    },
+    {
+     "u": "you ",
+     "t": 58.2
+    },
+    {
+     "u": "are ",
+     "t": 58.8
+    }
+   ],
+   "text": "How I wonder what you are"
+  }
+ ],
+ "duration": 64.8,
+ "license": "CC0-1.0",
+ "credits": "Melody: 'Ah! vous dirai-je, maman' (French folk tune, 1761). Lyrics: Jane Taylor, 'The Star' (1806). Public domain. Arrangement and synthesis: Cteno Jam contributors, CC0 1.0."
+}

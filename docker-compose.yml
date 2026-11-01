@@ -1,0 +1,27 @@
+# Self-host Cteno Jam.
+#   cp .env.example .env     # optional: AI review key, upload passphrase, limits
+#   docker compose up -d     # CPU — then open http://localhost:8765
+# With an NVIDIA GPU (needs nvidia-container-toolkit):
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Songs and stems live in the jam-data volume; downloaded models in jam-models.
+services:
+  jam:
+    image: cteno-jam:cpu
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        TORCH_INDEX: cpu
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+    ports:
+      - "${JAM_PORT:-8765}:8765"
+    volumes:
+      - jam-data:/data
+      - jam-models:/models
+
+volumes:
+  jam-data:
+  jam-models:

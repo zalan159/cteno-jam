@@ -1,0 +1,30 @@
+{
+ "base": "https://jam.cteno.cn",
+ "t": "2026-11-01T20:28:28.239Z",
+ "library": [
+  "Frère Jacques演示 · CC0AI ✓ 10",
+  "Twinkle, Twinkle, Little Star演示 · CC0AI ✓ 6"
+ ],
+ "load": {
+  "downloadMs": 72,
+  "decodeMs": 285,
+  "totalMs": 357,
+  "decodedMB": 49.8,
+  "bytes": 4670328
+ },
+ "followLink": "https://jam.cteno.cn/#/s/demo-twinkle?room=8jekzx&role=viewer",
+ "host": {
+  "playing": true,
+  "now": 2.924,
+  "db": -16.7,
+  "url": "https://jam.cteno.cn/#/s/demo-twinkle?room=8jekzx&role=host"
+ },
+ "guest": {
+  "chord": "G",
+  "livePos": 4.838,
+  "hostNow": 4.844,
+  "diff": -0.006
+ },
+ "errors": [],
+ "ok": true
+}

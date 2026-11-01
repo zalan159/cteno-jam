@@ -1,0 +1,31 @@
+name: "Next app idea / 征集下一款"
+description: "Suggest the next open-source app in the Cteno series (hobbies, personal growth). 提议系列的下一款应用。"
+title: "[Idea] "
+labels: ["idea", "next-app"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cteno Jam is the first of a series: open-source apps where AI does the hands-on production work so people keep their time for hobbies, life and growth.
+        Cteno Jam 是系列第一款：让 AI 干动手的生产型工作，人把时间留给兴趣、生活和成长。
+  - type: input
+    id: hobby
+    attributes:
+      label: "Which hobby or area? / 哪个兴趣或领域？"
+      placeholder: "e.g. drawing, running, cooking, language learning / 例如画画、跑步、做饭、学外语"
+    validations:
+      required: true
+  - type: textarea
+    id: chore
+    attributes:
+      label: "What tedious work should AI take over? / 哪段繁琐的活交给 AI？"
+    validations:
+      required: true
+  - type: textarea
+    id: joy
+    attributes:
+      label: "What part do you want to keep for yourself? / 你想自己留着享受的是哪部分？"
+  - type: textarea
+    id: who
+    attributes:
+      label: "Who would use it, and when? / 谁会用、在什么场景下用？"

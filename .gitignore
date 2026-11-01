@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+venv/
+.venv/
+*.egg-info/
+# Node / Playwright
+node_modules/
+test-results/
+playwright-report/
+# Runtime data, secrets
+data/
+.env
+*.env.local
+# Local helpers
+.slave-out/
+.DS_Store
+# Never commit audio except the CC0 demo set
+*.mp3
+*.m4a
+*.wav
+*.flac
+!demo/source/*.mp3
+!demo/songs/**/*.mp3
+!web/demo/**/*.mp3
+.cteno/
+dist/
+.env.test

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cteno-jam"
+version = "0.1.0"
+description = "Upload a song; get stems, chords, a guitar chart and synced lyrics; play and sing along together."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+  "numpy>=1.24",
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+  "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+# Processing (stem separation, analysis, transcription). Install torch/torchaudio first for your
+# platform (CPU or CUDA wheel), see docker/Dockerfile.
+process = [
+  "demucs==4.0.1",
+  "librosa>=0.10,<0.11",
+  "soundfile>=0.12",
+  "faster-whisper>=1.0",
+  "numpy<2.3",
+  "pypinyin>=0.50",
+]
+# Optional AI review through the Cteno Agent SDK (bundles a local daemon; bring your own model key)
+review = ["cteno-sdk>=2.10.15"]
+test = ["pytest>=8", "httpx>=0.27"]
+
+[project.scripts]
+cteno-jam = "cteno_jam.app:main"
+
+[tool.setuptools]
+packages = ["cteno_jam", "cteno_jam.pipeline"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: needs the processing extras (demucs, librosa) and minutes of CPU"]

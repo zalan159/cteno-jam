@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# slave — run a command on a test machine against THIS checkout's exact working tree.
+#
+#   scripts/slave <host> [--pull <path>]... -- <command>
+#
+# Same idea as Cteno's scripts/lan/rrun: the dev machine only edits code. Each call ships
+# the working tree (tracked + untracked, not ignored; uncommitted edits included) with
+# `git archive` of a throwaway tree object, unpacks it into $JAM_SLAVE_ROOT/<checkout> on the
+# host (ignored state such as venv/ and node_modules/ survives between calls), runs the
+# command there and streams its output back. --pull copies a path back into ./.slave-out/<host>/.
+#
+# Hosts come from your ~/.ssh/config. Per-host root: JAM_SLAVE_ROOT (default ~/CtenoDev/jam).
+set -euo pipefail
+usage() { echo "usage: scripts/slave <host> [--pull <path>]... -- <command>" >&2; exit 2; }
+[ $# -ge 1 ] || usage
+host="$1"; shift
+pulls=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --pull) [ $# -ge 2 ] || usage; pulls+=("$2"); shift 2 ;;
+    --) shift; break ;;
+    *) usage ;;
+  esac
+done
+[ $# -ge 1 ] || usage
+cmd="$*"
+root="${JAM_SLAVE_ROOT:-CtenoDev/jam}"
+top="$(git rev-parse --show-toplevel)"
+cd "$top"
+tmpidx="$(mktemp)"; trap 'rm -f "$tmpidx"' EXIT
+cp "$(git rev-parse --git-path index)" "$tmpidx"
+GIT_INDEX_FILE="$tmpidx" git add -A
+tree="$(GIT_INDEX_FILE="$tmpidx" git write-tree)"
+echo "slave: $(basename "$top") tree ${tree:0:9} -> $host:$root/src" >&2
+# Replace tracked files but keep ignored state (venv, node_modules, caches, data) in place:
+# delete only paths that are not ignored-state, then unpack the snapshot over them.
+git archive --format=tar "$tree" | ssh "$host" "mkdir -p $root/src && cd $root/src && \
+  find . -mindepth 1 \( -name venv -o -name node_modules -o -name .cache -o -name data -o -name .slave-keep \) -prune -o -type f -print0 | xargs -0 rm -f && tar xf -"
+set +e
+ssh "$host" "cd $root/src && export PATH=\$HOME/.local/node/bin:/opt/homebrew/bin:\$PATH && $cmd"
+rc=$?
+set -e
+for p in "${pulls[@]:-}"; do
+  [ -n "$p" ] || continue
+  mkdir -p ".slave-out/$host/$(dirname "$p")"
+  scp -rq "$host:$root/src/$p" ".slave-out/$host/$(dirname "$p")/" || echo "slave: could not pull $p" >&2
+done
+exit $rc

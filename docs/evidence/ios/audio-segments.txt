@@ -1,0 +1,22 @@
+recording offset vs steps: 59.36 s (first sound at 63.00 s in the file)
+before_play    mean= -91.0 dB  max= -91.0 dB
+playing        mean= -26.8 dB  max= -13.2 dB
+karaoke        mean= -28.2 dB  max= -14.0 dB
+full_again     mean= -27.2 dB  max= -12.8 dB
+drums_solo     mean= -36.5 dB  max= -19.0 dB
+transposed     mean= -26.0 dB  max= -12.5 dB
+slow           mean= -27.4 dB  max= -15.0 dB
+paused         mean= -91.0 dB  max= -91.0 dB
+resumed        mean= -25.9 dB  max= -11.3 dB
+stage_playing  mean= -26.0 dB  max= -13.3 dB
+PASS  before_play is silent
+PASS  playing has sound
+PASS  karaoke has sound
+PASS  full_again has sound
+PASS  transposed has sound
+PASS  slow has sound
+PASS  resumed has sound
+PASS  stage_playing has sound
+PASS  drums_solo quieter than full mix
+PASS  paused is silent
+RESULT PASS

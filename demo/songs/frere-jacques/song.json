@@ -1,0 +1,871 @@
+{
+ "format": "cteno-jam/song@1",
+ "meta": {
+  "title": "Frère Jacques",
+  "artist": "Traditional",
+  "duration": 57.55,
+  "stems": [
+   "bass",
+   "drums",
+   "guitar",
+   "other",
+   "piano",
+   "vocals"
+  ],
+  "timings": {
+   "decode": 0.1,
+   "separate": 10.3,
+   "analyze": 2.2,
+   "lyrics": 0.0,
+   "align": 0.1,
+   "encode": 1.5,
+   "review": 0.0
+  },
+  "device": "cpu",
+  "lyrics_source": "user",
+  "license": "CC0-1.0",
+  "credits": "Traditional French nursery round (18th century). Public domain. Arrangement, synthesis and stems: Cteno Jam contributors, CC0 1.0.",
+  "ai": {
+   "status": "done",
+   "summary": "The chart for \"Frère Jacques\" (57.5 s, 95.7 bpm, 4/4) is in F major and the chord histogram agrees: F dominates (59 beats), C follows (27), and the only other chord is the single A# segment, which is simply Bb misspelled — the key has no A#, so c006 is respelled to Bb (and re-affirmed as a plain triad). No blips needed merging: the 1–2 beat F/C alternations (c002–c007, c011–c012, c015–c016, c019–c020) are the song's actual two-chord oscillation, not misdetections, and no out-of-key chords remain. For beginners the song uses only F, C, Bb, so capo 5 with C shapes yields C, G and F — all open chords — and a simple \"D-DU-UDU\" strum fits the steady nursery-rhyme pulse. The form is labelled as a 14-beat instrumental intro (c001), the first stanza as verse 1 (l003–l008), an identical repeat as verse 2 (l009–l015, same F-C-F pattern as the first), and the final \"Ding dang dong\" plus 4-beat F cadence as the outro. Lyrics are correct and complete with no line-break problems; only l013 and l014 (\"Sonnez les matines\") show compressed timing (min unit ~0.30–0.31 s vs 0.6 s elsewhere) and were flagged rather than edited.",
+   "model": "deepseek-chat",
+   "accepted": 10,
+   "rejected": [],
+   "seconds": 28.2
+  }
+ },
+ "analysis": {
+  "tempo": 95.7,
+  "meter": 4,
+  "key": "F major",
+  "beats": [
+   0.65,
+   1.277,
+   1.904,
+   2.531,
+   3.158,
+   3.785,
+   4.412,
+   5.039,
+   5.642,
+   6.269,
+   6.896,
+   7.523,
+   8.15,
+   8.777,
+   9.404,
+   10.031,
+   10.658,
+   11.285,
+   11.912,
+   12.539,
+   13.142,
+   13.769,
+   14.396,
+   15.023,
+   15.65,
+   16.277,
+   16.904,
+   17.531,
+   18.158,
+   18.785,
+   19.412,
+   20.039,
+   20.643,
+   21.269,
+   21.896,
+   22.523,
+   23.15,
+   23.777,
+   24.404,
+   25.031,
+   25.658,
+   26.285,
+   26.912,
+   27.539,
+   28.143,
+   28.77,
+   29.396,
+   30.023,
+   30.65,
+   31.277,
+   31.904,
+   32.531,
+   33.158,
+   33.785,
+   34.412,
+   35.039,
+   35.643,
+   36.27,
+   36.897,
+   37.523,
+   38.15,
+   38.777,
+   39.404,
+   40.031,
+   40.658,
+   41.285,
+   41.912,
+   42.539,
+   43.143,
+   43.793,
+   44.397,
+   45.023,
+   45.65,
+   46.277,
+   46.904,
+   47.531,
+   48.158,
+   48.785,
+   49.412,
+   50.039,
+   50.643,
+   51.27,
+   51.897,
+   52.524,
+   53.15,
+   53.777,
+   54.404
+  ],
+  "downbeats": [
+   0.65,
+   3.158,
+   5.642,
+   8.15,
+   10.658,
+   13.142,
+   15.65,
+   18.158,
+   20.643,
+   23.15,
+   25.658,
+   28.143,
+   30.65,
+   33.158,
+   35.643,
+   38.15,
+   40.658,
+   43.143,
+   45.65,
+   48.158,
+   50.643,
+   53.15
+  ],
+  "chords": [
+   {
+    "start": 0.0,
+    "end": 8.777,
+    "chord": "F",
+    "beats": 14,
+    "id": "c001"
+   },
+   {
+    "start": 8.777,
+    "end": 10.031,
+    "chord": "C",
+    "beats": 2,
+    "id": "c002"
+   },
+   {
+    "start": 10.031,
+    "end": 11.285,
+    "chord": "F",
+    "beats": 2,
+    "id": "c003"
+   },
+   {
+    "start": 11.285,
+    "end": 12.539,
+    "chord": "C",
+    "beats": 2,
+    "id": "c004"
+   },
+   {
+    "start": 12.539,
+    "end": 13.769,
+    "chord": "F",
+    "beats": 2,
+    "id": "c005"
+   },
+   {
+    "start": 13.769,
+    "end": 15.023,
+    "chord": "Bb",
+    "beats": 2,
+    "id": "c006"
+   },
+   {
+    "start": 15.023,
+    "end": 16.277,
+    "chord": "F",
+    "beats": 2,
+    "id": "c007"
+   },
+   {
+    "start": 16.277,
+    "end": 20.039,
+    "chord": "C",
+    "beats": 6,
+    "id": "c008"
+   },
+   {
+    "start": 20.039,
+    "end": 23.15,
+    "chord": "F",
+    "beats": 5,
+    "id": "c009"
+   },
+   {
+    "start": 23.15,
+    "end": 25.031,
+    "chord": "C",
+    "beats": 3,
+    "id": "c010"
+   },
+   {
+    "start": 25.031,
+    "end": 26.285,
+    "chord": "F",
+    "beats": 2,
+    "id": "c011"
+   },
+   {
+    "start": 26.285,
+    "end": 27.539,
+    "chord": "C",
+    "beats": 2,
+    "id": "c012"
+   },
+   {
+    "start": 27.539,
+    "end": 33.785,
+    "chord": "F",
+    "beats": 10,
+    "id": "c013"
+   },
+   {
+    "start": 33.785,
+    "end": 35.039,
+    "chord": "C",
+    "beats": 2,
+    "id": "c014"
+   },
+   {
+    "start": 35.039,
+    "end": 35.643,
+    "chord": "F",
+    "beats": 1,
+    "id": "c015"
+   },
+   {
+    "start": 35.643,
+    "end": 37.523,
+    "chord": "C",
+    "beats": 3,
+    "id": "c016"
+   },
+   {
+    "start": 37.523,
+    "end": 41.285,
+    "chord": "F",
+    "beats": 6,
+    "id": "c017"
+   },
+   {
+    "start": 41.285,
+    "end": 42.539,
+    "chord": "C",
+    "beats": 2,
+    "id": "c018"
+   },
+   {
+    "start": 42.539,
+    "end": 43.793,
+    "chord": "F",
+    "beats": 2,
+    "id": "c019"
+   },
+   {
+    "start": 43.793,
+    "end": 45.023,
+    "chord": "C",
+    "beats": 2,
+    "id": "c020"
+   },
+   {
+    "start": 45.023,
+    "end": 50.643,
+    "chord": "F",
+    "beats": 9,
+    "id": "c021"
+   },
+   {
+    "start": 50.643,
+    "end": 52.524,
+    "chord": "C",
+    "beats": 3,
+    "id": "c022"
+   },
+   {
+    "start": 52.524,
+    "end": 57.5,
+    "chord": "F",
+    "beats": 4,
+    "id": "c023"
+   }
+  ],
+  "stem_energy": {
+   "drums": 0.054211441427469254,
+   "bass": 0.1250125914812088,
+   "other": 0.05424047261476517,
+   "vocals": 0.014089374803006649,
+   "guitar": 0.11265731602907181,
+   "piano": 0.06936317682266235
+  },
+  "duration": 57.5,
+  "lyrics": {
+   "offset": 0.0,
+   "lines": [
+    {
+     "id": "l001",
+     "start": 2.531,
+     "end": 3.758,
+     "text": "Frère Jacques",
+     "chars": [
+      {
+       "c": "Frère ",
+       "t": 2.531,
+       "end": 3.158
+      },
+      {
+       "c": "Jacques",
+       "t": 3.158,
+       "end": 3.758
+      }
+     ]
+    },
+    {
+     "id": "l002",
+     "start": 5.039,
+     "end": 6.242,
+     "text": "Frère Jacques",
+     "chars": [
+      {
+       "c": "Frère ",
+       "t": 5.039,
+       "end": 5.642
+      },
+      {
+       "c": "Jacques",
+       "t": 5.642,
+       "end": 6.242
+      }
+     ]
+    },
+    {
+     "id": "l003",
+     "start": 7.523,
+     "end": 9.377,
+     "text": "Dormez vous",
+     "chars": [
+      {
+       "c": "Dormez ",
+       "t": 7.523,
+       "end": 8.323
+      },
+      {
+       "c": "vous",
+       "t": 8.777,
+       "end": 9.377
+      }
+     ]
+    },
+    {
+     "id": "l004",
+     "start": 10.031,
+     "end": 11.885,
+     "text": "Dormez vous",
+     "chars": [
+      {
+       "c": "Dormez ",
+       "t": 10.031,
+       "end": 10.831
+      },
+      {
+       "c": "vous",
+       "t": 11.285,
+       "end": 11.885
+      }
+     ]
+    },
+    {
+     "id": "l005",
+     "start": 12.539,
+     "end": 14.996,
+     "text": "Sonnez les matines",
+     "chars": [
+      {
+       "c": "Sonnez ",
+       "t": 12.539,
+       "end": 13.339
+      },
+      {
+       "c": "les ",
+       "t": 13.769,
+       "end": 14.396
+      },
+      {
+       "c": "matines",
+       "t": 14.396,
+       "end": 14.996
+      }
+     ]
+    },
+    {
+     "id": "l006",
+     "start": 17.531,
+     "end": 19.699,
+     "text": "Sonnez les matines",
+     "chars": [
+      {
+       "c": "Sonnez ",
+       "t": 17.531,
+       "end": 18.331
+      },
+      {
+       "c": "les ",
+       "t": 18.785,
+       "end": 19.099
+      },
+      {
+       "c": "matines",
+       "t": 19.099,
+       "end": 19.699
+      }
+     ]
+    },
+    {
+     "id": "l007",
+     "start": 22.523,
+     "end": 24.25,
+     "text": "Ding dang dong",
+     "chars": [
+      {
+       "c": "Ding ",
+       "t": 22.523,
+       "end": 23.301
+      },
+      {
+       "c": "dang ",
+       "t": 23.301,
+       "end": 23.65
+      },
+      {
+       "c": "dong",
+       "t": 23.65,
+       "end": 24.25
+      }
+     ]
+    },
+    {
+     "id": "l008",
+     "start": 25.24,
+     "end": 27.036,
+     "text": "Ding dang dong",
+     "chars": [
+      {
+       "c": "Ding ",
+       "t": 25.24,
+       "end": 25.786
+      },
+      {
+       "c": "dang ",
+       "t": 25.786,
+       "end": 26.436
+      },
+      {
+       "c": "dong",
+       "t": 26.436,
+       "end": 27.036
+      }
+     ]
+    },
+    {
+     "id": "l009",
+     "start": 27.539,
+     "end": 28.743,
+     "text": "Frère Jacques",
+     "chars": [
+      {
+       "c": "Frère ",
+       "t": 27.539,
+       "end": 28.143
+      },
+      {
+       "c": "Jacques",
+       "t": 28.143,
+       "end": 28.743
+      }
+     ]
+    },
+    {
+     "id": "l010",
+     "start": 30.023,
+     "end": 31.25,
+     "text": "Frère Jacques",
+     "chars": [
+      {
+       "c": "Frère ",
+       "t": 30.023,
+       "end": 30.65
+      },
+      {
+       "c": "Jacques",
+       "t": 30.65,
+       "end": 31.25
+      }
+     ]
+    },
+    {
+     "id": "l011",
+     "start": 32.531,
+     "end": 34.385,
+     "text": "Dormez vous",
+     "chars": [
+      {
+       "c": "Dormez ",
+       "t": 32.531,
+       "end": 33.331
+      },
+      {
+       "c": "vous",
+       "t": 33.785,
+       "end": 34.385
+      }
+     ]
+    },
+    {
+     "id": "l012",
+     "start": 35.039,
+     "end": 36.87,
+     "text": "Dormez vous",
+     "chars": [
+      {
+       "c": "Dormez ",
+       "t": 35.039,
+       "end": 35.839
+      },
+      {
+       "c": "vous",
+       "t": 36.27,
+       "end": 36.87
+      }
+     ]
+    },
+    {
+     "id": "l013",
+     "start": 37.523,
+     "end": 39.691,
+     "text": "Sonnez les matines",
+     "chars": [
+      {
+       "c": "Sonnez ",
+       "t": 37.523,
+       "end": 38.323
+      },
+      {
+       "c": "les ",
+       "t": 38.777,
+       "end": 39.091
+      },
+      {
+       "c": "matines",
+       "t": 39.091,
+       "end": 39.691
+      }
+     ]
+    },
+    {
+     "id": "l014",
+     "start": 42.539,
+     "end": 44.695,
+     "text": "Sonnez les matines",
+     "chars": [
+      {
+       "c": "Sonnez ",
+       "t": 42.539,
+       "end": 43.339
+      },
+      {
+       "c": "les ",
+       "t": 43.793,
+       "end": 44.095
+      },
+      {
+       "c": "matines",
+       "t": 44.095,
+       "end": 44.695
+      }
+     ]
+    },
+    {
+     "id": "l015",
+     "start": 47.531,
+     "end": 49.269,
+     "text": "Ding dang dong",
+     "chars": [
+      {
+       "c": "Ding ",
+       "t": 47.531,
+       "end": 48.123
+      },
+      {
+       "c": "dang ",
+       "t": 48.123,
+       "end": 48.669
+      },
+      {
+       "c": "dong",
+       "t": 48.669,
+       "end": 49.269
+      }
+     ]
+    },
+    {
+     "id": "l016",
+     "start": 50.039,
+     "end": 51.846,
+     "text": "Ding dang dong",
+     "chars": [
+      {
+       "c": "Ding ",
+       "t": 50.039,
+       "end": 50.643
+      },
+      {
+       "c": "dang ",
+       "t": 50.643,
+       "end": 51.246
+      },
+      {
+       "c": "dong",
+       "t": 51.246,
+       "end": 51.846
+      }
+     ]
+    }
+   ],
+   "source": "user",
+   "language": null
+  },
+  "capo_rule": {
+   "fret": 3,
+   "easy_share": 1.0
+  },
+  "sections": [
+   {
+    "id": "s001",
+    "start": 0.0,
+    "end": 8.78,
+    "label": "intro"
+   },
+   {
+    "id": "s002",
+    "start": 8.78,
+    "end": 27.54,
+    "label": "verse"
+   },
+   {
+    "id": "s003",
+    "start": 27.54,
+    "end": 50.64,
+    "label": "verse"
+   },
+   {
+    "id": "s004",
+    "start": 50.64,
+    "end": 57.5,
+    "label": "outro"
+   }
+  ],
+  "simplified": {
+   "c006": "Bb"
+  },
+  "analyzer": {
+   "separation": "htdemucs_6s",
+   "chords": "chroma-template+viterbi",
+   "lyrics": "user",
+   "whisper": null,
+   "device": "cpu",
+   "key_spelling": "flats"
+  },
+  "capo": {
+   "fret": 5,
+   "shapes": "C"
+  },
+  "rhythm": {
+   "kind": "strum",
+   "pattern": "D-DU-UDU",
+   "note": "Steady 4/4 nursery-rhyme strum at 96 bpm, one chord per bar."
+  },
+  "flags": [
+   {
+    "line": "l013",
+    "issue": "min_unit_s 0.314"
+   },
+   {
+    "line": "l014",
+    "issue": "min_unit_s 0.302"
+   }
+  ],
+  "title": "Frère Jacques",
+  "artist": "Traditional"
+ },
+ "revisions": [
+  {
+   "id": "r001",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "chord": "Bb",
+    "id": "c006",
+    "op": "respell_chord",
+    "reason": "In F major the fourth degree is written Bb, not A# (c006, 13.77-15.02 s)."
+   },
+   "reason": "In F major the fourth degree is written Bb, not A# (c006, 13.77-15.02 s).",
+   "status": "applied",
+   "ts": 1793558077
+  },
+  {
+   "id": "r002",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "chord": "Bb",
+    "id": "c006",
+    "op": "simplify_chord",
+    "reason": "Bb is a plain triad already; keep the open Bb shape for beginners."
+   },
+   "reason": "Bb is a plain triad already; keep the open Bb shape for beginners.",
+   "status": "applied",
+   "ts": 1793558077
+  },
+  {
+   "id": "r003",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "fret": 5,
+    "op": "set_capo",
+    "reason": "Key F major with only F, C and Bb: capo 5 and C shapes give C, G and F, all easy open chords.",
+    "shapes": "C"
+   },
+   "reason": "Key F major with only F, C and Bb: capo 5 and C shapes give C, G and F, all easy open chords.",
+   "status": "applied",
+   "ts": 1793558077
+  },
+  {
+   "id": "r004",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "kind": "strum",
+    "note": "Steady 4/4 nursery-rhyme strum at 96 bpm, one chord per bar.",
+    "op": "set_rhythm",
+    "pattern": "D-DU-UDU",
+    "reason": "95.7 bpm in 4/4 with 2-beat harmonic changes suits a simple down-up strum."
+   },
+   "reason": "95.7 bpm in 4/4 with 2-beat harmonic changes suits a simple down-up strum.",
+   "status": "applied",
+   "ts": 1793558077
+  },
+  {
+   "id": "r005",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "end": 8.78,
+    "label": "intro",
+    "op": "add_section",
+    "reason": "c001 is a 14-beat F with no lyric (0-8.78 s), an instrumental lead-in before the first 'Frère Jacques'.",
+    "start": 0.0
+   },
+   "reason": "c001 is a 14-beat F with no lyric (0-8.78 s), an instrumental lead-in before the first 'Frère Jacques'.",
+   "status": "applied",
+   "ts": 1793558077
+  },
+  {
+   "id": "r006",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "end": 27.54,
+    "label": "verse",
+    "op": "add_section",
+    "reason": "First full stanza: 'Dormez vous' (l003-l004), 'Sonnez les matines' (l005-l006) and 'Ding dang dong' (l007-l008) over F-C alternation.",
+    "start": 8.78
+   },
+   "reason": "First full stanza: 'Dormez vous' (l003-l004), 'Sonnez les matines' (l005-l006) and 'Ding dang dong' (l007-l008) over F-C alternation.",
+   "status": "applied",
+   "ts": 1793558077
+  },
+  {
+   "id": "r007",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "end": 50.64,
+    "label": "verse",
+    "op": "add_section",
+    "reason": "Exact repeat of the stanza ('Frère Jacques' l009-l010 to 'Ding dang dong' l015) with the same F-C-F pattern as c003-c013.",
+    "start": 27.54
+   },
+   "reason": "Exact repeat of the stanza ('Frère Jacques' l009-l010 to 'Ding dang dong' l015) with the same F-C-F pattern as c003-c013.",
+   "status": "applied",
+   "ts": 1793558077
+  },
+  {
+   "id": "r008",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "end": 57.5,
+    "label": "outro",
+    "op": "add_section",
+    "reason": "Final 'Ding dang dong' (l016) followed by a 4-beat F cadence (c023) ending the song.",
+    "start": 50.64
+   },
+   "reason": "Final 'Ding dang dong' (l016) followed by a 4-beat F cadence (c023) ending the song.",
+   "status": "applied",
+   "ts": 1793558077
+  },
+  {
+   "id": "r009",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "issue": "min_unit_s 0.314",
+    "line": "l013",
+    "op": "flag_line",
+    "reason": "l013 'Sonnez les matines' squeezes three syllables into 2.17 s (min unit 0.31 s) while the same text in l005 takes 2.46 s, so timing looks rushed."
+   },
+   "reason": "l013 'Sonnez les matines' squeezes three syllables into 2.17 s (min unit 0.31 s) while the same text in l005 takes 2.46 s, so timing looks rushed.",
+   "status": "applied",
+   "ts": 1793558077
+  },
+  {
+   "id": "r010",
+   "source": "ai",
+   "batch": "ai-1793558077",
+   "patch": {
+    "issue": "min_unit_s 0.302",
+    "line": "l014",
+    "op": "flag_line",
+    "reason": "l014 'Sonnez les matines' is squeezed (min unit 0.30 s) and spans 42.54-44.7 s across the c019/c020 chord change, suggesting misalignment."
+   },
+   "reason": "l014 'Sonnez les matines' is squeezed (min unit 0.30 s) and spans 42.54-44.7 s across the c019/c020 chord change, suggesting misalignment.",
+   "status": "applied",
+   "ts": 1793558077
+  }
+ ]
+}
