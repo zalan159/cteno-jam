@@ -3,7 +3,7 @@ const S = {
   en: {
     app: "Cteno Jam", tagline: "Upload a song. Get stems, chords and synced lyrics. Play and sing together.",
     library: "Library", search: "Search songs", upload: "Add a song", upload_hint: "Tap to choose, or drop a file here · mp3, m4a, wav, flac",
-    upload_btn: "Upload a song", upload_change: "Choose another song", picked: "Selected: {f}",
+    upload_btn: "Upload a song", upload_change: "Change song", picked: "Selected: {f}",
     title: "Title", artist: "Artist (optional, helps find lyrics)", lyrics_opt: "Lyrics or LRC (optional)", choose_file: "Choose audio file",
     start_upload: "Upload and process", uploading: "Uploading… {p}%", passphrase: "Upload passphrase",
     st_uploading: "Uploading", st_queued: "Waiting in queue", st_processing: "Processing", st_ready: "Ready", st_failed: "Failed",
