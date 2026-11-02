@@ -181,3 +181,46 @@ def test_audio_errors_hide_server_paths(tmp_path):
         assert "secret-dir" not in str(e) and "not a readable audio file" in str(e)
     else:
         raise AssertionError("expected AudioError")
+
+
+def _guarded_client(tmp_path, **over):
+    cfg = config.reset(data_dir=tmp_path, web_dir=tmp_path / "noweb", **over)
+    a = appmod.create_app(cfg, start_queue=False)  # nothing consumes the queue: songs stay "queued"
+    return TestClient(a)
+
+
+def test_queue_limit_rejects_when_full(tmp_path):
+    with _guarded_client(tmp_path, max_queue=2) as c:
+        assert upload(c, title="a").status_code == 201
+        r2 = upload(c, title="b")
+        assert r2.status_code == 201 and r2.json()["queue_position"] == 2
+        r3 = upload(c, title="c")
+        assert r3.status_code == 429 and "队列已满" in r3.json()["detail"]
+
+
+def test_per_ip_hourly_limit_uses_forwarded_for(tmp_path):
+    with _guarded_client(tmp_path, uploads_per_ip_hour=2) as c:
+        a, b = {"X-Forwarded-For": "8.8.8.8"}, {"X-Forwarded-For": "1.1.1.1, 10.0.0.1"}
+        for i in range(2):
+            assert c.post("/api/songs", files={"file": ("x.mp3", io.BytesIO(b"ID3x"), "audio/mpeg")}, headers=a).status_code == 201
+        r = c.post("/api/songs", files={"file": ("x.mp3", io.BytesIO(b"ID3x"), "audio/mpeg")}, headers=a)
+        assert r.status_code == 429
+        # another client is unaffected; a private (LAN) client is exempt by default
+        assert c.post("/api/songs", files={"file": ("x.mp3", io.BytesIO(b"ID3x"), "audio/mpeg")}, headers=b).status_code == 201
+        lan = {"X-Forwarded-For": "192.168.8.20"}
+        for _ in range(4):
+            assert c.post("/api/songs", files={"file": ("x.mp3", io.BytesIO(b"ID3x"), "audio/mpeg")}, headers=lan).status_code == 201
+
+
+def test_disk_guard(tmp_path):
+    with _guarded_client(tmp_path, max_disk_percent=1) as c:  # any real disk is >1% full
+        assert upload(c).status_code == 507
+
+
+def test_events_stream_carries_queue_position(tmp_path):
+    with _guarded_client(tmp_path) as c:
+        upload(c, title="a"); upload(c, title="b")
+        with c.stream("GET", "/api/events") as r:
+            line = next(l for l in r.iter_lines() if l.startswith("data:"))
+        songs = json.loads(line[5:])["songs"]
+        assert sorted(s["queue_position"] for s in songs if s["status"] == "queued") == [1, 2]

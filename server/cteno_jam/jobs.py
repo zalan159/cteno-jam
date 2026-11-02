@@ -57,9 +57,10 @@ class JobQueue:
     def position(self, sid: str) -> int:
         with self.q.mutex:
             items = list(self.q.queue)
+        busy = len(self.running)  # jobs currently being processed are ahead of everything waiting
         for i, (s, _) in enumerate(items):
             if s == sid:
-                return i + 1
+                return i + 1 + busy
         return 0
 
     def cancel(self, sid: str) -> None:

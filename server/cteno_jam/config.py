@@ -40,6 +40,11 @@ class Config:
     lrclib_url: str = field(default_factory=lambda: os.environ.get("JAM_LRCLIB_URL", "https://lrclib.net"))
     # Uploading/deleting can be protected by a shared passphrase (header X-Jam-Key or ?key=)
     admin_key: str = field(default_factory=lambda: os.environ.get("JAM_ADMIN_KEY", ""))
+    # Abuse guards for an internet-facing instance (all optional; 0 disables)
+    max_queue: int = field(default_factory=lambda: _int("JAM_MAX_QUEUE", 0))                 # songs waiting+processing
+    uploads_per_ip_hour: int = field(default_factory=lambda: _int("JAM_UPLOADS_PER_IP_HOUR", 0))
+    rate_limit_private: bool = field(default_factory=lambda: _bool("JAM_RATE_LIMIT_PRIVATE", False))  # LAN clients exempt by default
+    max_disk_percent: int = field(default_factory=lambda: _int("JAM_MAX_DISK_PERCENT", 0))   # refuse uploads above this
     public_url: str = field(default_factory=lambda: os.environ.get("JAM_PUBLIC_URL", ""))
 
     # AI review (optional): any OpenAI/Anthropic/Gemini-compatible endpoint via the Cteno SDK

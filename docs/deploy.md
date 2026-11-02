@@ -21,7 +21,7 @@ phones the page must be **https or localhost** (browsers only enable AudioWorkle
 put it behind a reverse proxy with a certificate (Caddy does this automatically) or use a
 tunnel. Set `JAM_PUBLIC_URL` to the https address so share links and QR codes use it.
 
-## 2. Public demo on a small VPS (what jam.cteno.cn runs)
+## 2. Player-only demo on a small VPS
 
 ```bash
 JAM_DEPLOY_SSH=root@your-vps JAM_DEPLOY_DOMAIN=jam.example.com bash scripts/deploy_relay.sh
@@ -59,9 +59,19 @@ run processing there**.
 
 **自己和朋友用（推荐）**：一台机器 `docker compose up -d` 跑全部。手机要用变速/移调，页面必须是 https 或 localhost，所以请加一个带证书的反向代理（Caddy 会自动签证书），并把 `JAM_PUBLIC_URL` 设成 https 地址。
 
-**小 VPS 上的公开演示**（jam.cteno.cn 就是这样部署的）：`scripts/deploy_relay.sh` 装静态播放器、`JAM_MODE=player` 的同步服务（systemd，限 200MB 内存，上传返回 403）和一个 Caddy 站点，不动机器上的其他站点。2 核 1G 的机器跑不了分轨，**不要在上面做处理**。
+**小 VPS 上的只读演示**：`scripts/deploy_relay.sh` 装静态播放器、`JAM_MODE=player` 的同步服务（systemd，限 200MB 内存，上传返回 403）和一个 Caddy 站点，不动机器上的其他站点。2 核 1G 的机器跑不了分轨，**不要在上面做处理**。
 
 **处理放在哪里（托管版规划）**：
 1. 现在：放在家里的电脑上（16GB 内存的 PC 或 Mac 即可，有游戏显卡更好），VPS 只当播放器。不额外花钱，用户音频也不出门。
 2. 以后要开放上传：VPS 继续做公开入口（播放器、曲库、房间、接收上传），处理交给按需租用的 GPU worker，从 VPS 拉任务、处理完把分轨传回。中端 GPU 上一首 4 分钟的歌分轨约 10 秒，一张卡每小时能处理几百首，队列空了就关机。需要在入口和 worker 之间加一个小的任务 API（现在每首歌已经是一个独立子进程，边界是现成的）。
 3. 不要在 1G 的公网机器上处理；默认用 `JAM_ADMIN_KEY` 把上传保护起来，因为一定会有人传有版权的录音。
+
+## What jam.cteno.cn runs now · jam.cteno.cn 现在的部署
+
+Since 2026-11-02 jam.cteno.cn is a full instance (upload + processing) on one RTX 4090 at our office,
+reached through a small cloud relay (Caddy for TLS, frp tunnel to the GPU box). No passphrase; abuse is
+bounded by `JAM_WORKERS=1`, `JAM_MAX_UPLOAD_MB=50`, `JAM_MAX_QUEUE=20`, `JAM_UPLOADS_PER_IP_HOUR=5`
+and `JAM_MAX_DISK_PERCENT=80`, and the relay answers 403 to rename/delete/edit/retry/review so visitors
+cannot touch other people's songs. One 4-minute song takes about 42 s on the GPU (~2 GB VRAM peak).
+
+2026-11-02 起 jam.cteno.cn 是完整实例（可上传、可处理），跑在办公室一张 RTX 4090 上，经云上中转（Caddy 签证书，frp 隧道到显卡机）对外。不设口令，靠上面这几项限制防刷；中转层对重命名/删除/编辑/重试/AI 校对一律返回 403，访客动不了别人的歌。一首 4 分钟的歌在 GPU 上约 42 秒处理完，显存峰值约 2GB。

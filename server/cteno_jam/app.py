@@ -18,11 +18,13 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
 import re
 import shutil
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -57,6 +59,41 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         if cfg.admin_key and key != cfg.admin_key:
             raise HTTPException(401, "this server needs the upload passphrase (JAM_ADMIN_KEY)")
 
+    hits: dict = {}  # client ip -> [upload timestamps], for JAM_UPLOADS_PER_IP_HOUR
+
+    def client_ip(request: Request) -> str:
+        # Behind Caddy/frp the TCP peer is the proxy; the real client is the first X-Forwarded-For entry.
+        xff = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        return xff or (request.client.host if request.client else "?")
+
+    def is_private(ip: str) -> bool:
+        try:
+            a = ipaddress.ip_address(ip)
+            return a.is_private or a.is_loopback or a.is_link_local
+        except ValueError:
+            return False
+
+    def upload_guards(request: Request):
+        """Raise 429/507 when an upload should be refused (queue full, rate limit, disk almost full)."""
+        if cfg.max_disk_percent:
+            du = shutil.disk_usage(cfg.data_dir)
+            if du.used * 100 > du.total * cfg.max_disk_percent:
+                raise HTTPException(507, "磁盘空间不足，暂时无法上传 (disk is more than %d%% full)" % cfg.max_disk_percent)
+        if cfg.max_queue:
+            busy = sum(1 for m in st.list() if m.get("status") in ("queued", "processing"))
+            if busy >= cfg.max_queue:
+                raise HTTPException(429, "队列已满，稍后再试 (queue is full: %d songs)" % cfg.max_queue)
+        if cfg.uploads_per_ip_hour:
+            ip = client_ip(request)
+            if cfg.rate_limit_private or not is_private(ip):
+                now = time.time()
+                recent = [t for t in hits.get(ip, []) if now - t < 3600]
+                if len(recent) >= cfg.uploads_per_ip_hour:
+                    hits[ip] = recent
+                    raise HTTPException(429, "上传太频繁，每小时最多 %d 首，稍后再试 (rate limit)" % cfg.uploads_per_ip_hour)
+                recent.append(now)
+                hits[ip] = recent
+
     def meta_or_404(sid: str):
         try:
             return st.meta(sid)
@@ -66,7 +103,7 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
     @app.get("/api/info")
     def info():
         return {"name": "Cteno Jam", "version": __version__, "mode": cfg.mode, "upload": cfg.processing,
-                "needs_key": bool(cfg.admin_key), "max_upload_mb": cfg.max_upload_mb,
+                "needs_key": bool(cfg.admin_key), "public_url": cfg.public_url, "max_upload_mb": cfg.max_upload_mb,
                 "max_duration_s": cfg.max_duration_s, "formats": sorted(ALLOWED_EXT),
                 "ai": {"configured": cfg.ai_configured, "model": cfg.ai_model if cfg.ai_configured else None},
                 "room": new_code()}
@@ -83,7 +120,7 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         return {"songs": out}
 
     @app.post("/api/songs", status_code=201)
-    async def upload(file: UploadFile = File(...), title: str = Form(""), artist: str = Form(""),
+    async def upload(request: Request, file: UploadFile = File(...), title: str = Form(""), artist: str = Form(""),
                      lyrics: str = Form(""), x_jam_key: Optional[str] = Header(None), key: Optional[str] = Query(None)):
         guard(x_jam_key or key)
         if not cfg.processing:
@@ -92,6 +129,7 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         ext = os.path.splitext(name)[1].lower()
         if ext not in ALLOWED_EXT:
             raise HTTPException(415, "unsupported file type '%s'; use mp3, m4a, wav or flac" % (ext or "?"))
+        upload_guards(request)
         title = title.strip() or os.path.splitext(name)[0]
         m = st.create(title, artist, name, lyrics=lyrics)
         dest = st.dir(m["id"]) / ("original" + ext)
@@ -221,11 +259,15 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
             last = None
             idle = 0
             while not await request.is_disconnected():
-                snap = [(m["id"], m.get("updated"), m.get("status"), m.get("progress"), (m.get("ai") or {}).get("status"))
-                        for m in st.list()]
+                snap = [(m["id"], m.get("updated"), m.get("status"), m.get("progress"), (m.get("ai") or {}).get("status"),
+                         jobs.position(m["id"]) if m.get("status") == "queued" else 0) for m in st.list()]
                 if snap != last:
                     last = snap
-                    yield "data: %s\n\n" % json.dumps({"songs": [store.public_meta(m) for m in st.list()]}, ensure_ascii=False)
+                    songs = [store.public_meta(m) for m in st.list()]
+                    for m in songs:
+                        if m["status"] == "queued":
+                            m["queue_position"] = jobs.position(m["id"])
+                    yield "data: %s\n\n" % json.dumps({"songs": songs}, ensure_ascii=False)
                     idle = 0
                 else:
                     idle += 1

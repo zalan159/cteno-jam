@@ -7,7 +7,12 @@
 <b>传一首歌，自动拆分轨、扒和弦、出吉他谱、对歌词，大家一起弹、一起唱。</b>
 </p>
 
-<p align="center"><a href="#english">English</a> · <a href="#中文">中文</a> · <a href="LICENSE">Apache-2.0</a></p>
+<p align="center"><a href="https://jam.cteno.cn"><b>Try it: jam.cteno.cn</b></a> · <a href="#english">English</a> · <a href="#中文">中文</a> · <a href="LICENSE">Apache-2.0</a></p>
+
+> **Public instance / 公开实例: [jam.cteno.cn](https://jam.cteno.cn)** — upload your own song, no account
+> needed. It runs on one GPU, so songs are processed one at a time in a queue (50 MB per file, 5 uploads per hour
+> per visitor). Please only upload music you have the right to use.
+> 不用注册，直接上传自己的歌。只有一张显卡，按排队一首一首处理（单个文件 50MB 以内，每人每小时 5 首）。请只上传你有权使用的音乐。
 
 > **Cteno Jam is the first of a series.** We are building a set of open-source apps with
 > Cteno's own AI to help people grow their hobbies and look after their personal growth.
@@ -121,7 +126,9 @@ cteno-jam                      # http://localhost:8765
 ```
 
 All settings are environment variables, documented in [`.env.example`](.env.example).
-For a public server set `JAM_ADMIN_KEY` (upload/edit passphrase) and `JAM_PUBLIC_URL`.
+For a public server set `JAM_PUBLIC_URL`, and either `JAM_ADMIN_KEY` (upload/edit passphrase) or the
+open-upload guards `JAM_MAX_QUEUE`, `JAM_UPLOADS_PER_IP_HOUR` and `JAM_MAX_DISK_PERCENT` (what jam.cteno.cn uses;
+put a reverse proxy in front that sets `X-Forwarded-For` and blocks delete/edit from the internet).
 
 ## Architecture
 
