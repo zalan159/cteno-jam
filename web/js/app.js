@@ -155,7 +155,7 @@ function uploadCard() {
   return `<div class="card">
     <label class="drop" id="drop" role="button" tabindex="0" aria-label="${esc(t("upload_btn"))}">
       <input type="file" id="file" class="vh" accept="audio/*,.mp3,.m4a,.wav,.flac,.aac,.ogg">
-      <span class="upbtn" id="upBtn"><span class="upic" aria-hidden="true">⤒</span>${esc(t("upload_btn"))}</span>
+      <span class="upbtn" id="upBtn"><svg class="upic" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span id="upLabel">${esc(t("upload_btn"))}</span></span>
       <span class="uphint" id="upHint">${esc(t("upload_hint"))}</span>
       <span class="upfile hidden" id="upFile"></span></label>
     <div class="form hidden" id="upForm">
@@ -173,7 +173,7 @@ function bindUpload() {
   const pick = fl => {
     if (!fl) return; file = fl; form.classList.remove("hidden");
     $("#upFile").textContent = t("picked", { f: fl.name }); $("#upFile").classList.remove("hidden");
-    $("#upBtn").lastChild.textContent = t("upload_change");
+    $("#upLabel").textContent = t("upload_change");
     if (!$("#upTitle").value) $("#upTitle").value = fl.name.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ");
   };
   f.onchange = () => pick(f.files[0]);
