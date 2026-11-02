@@ -121,7 +121,8 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
 
     @app.post("/api/songs", status_code=201)
     async def upload(request: Request, file: UploadFile = File(...), title: str = Form(""), artist: str = Form(""),
-                     lyrics: str = Form(""), x_jam_key: Optional[str] = Header(None), key: Optional[str] = Query(None)):
+                     lyrics: str = Form(""), lang: str = Form(""), x_jam_key: Optional[str] = Header(None),
+                     key: Optional[str] = Query(None)):
         guard(x_jam_key or key)
         if not cfg.processing:
             raise HTTPException(403, "this server is player-only (JAM_MODE=player); uploads are disabled")
@@ -131,7 +132,8 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
             raise HTTPException(415, "unsupported file type '%s'; use mp3, m4a, wav or flac" % (ext or "?"))
         upload_guards(request)
         title = title.strip() or os.path.splitext(name)[0]
-        m = st.create(title, artist, name, lyrics=lyrics)
+        from .review import norm_lang
+        m = st.create(title, artist, name, lyrics=lyrics, lang=norm_lang(lang) or "")
         dest = st.dir(m["id"]) / ("original" + ext)
         limit = cfg.max_upload_mb * 1024 * 1024
         size = 0
@@ -243,9 +245,12 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
             raise HTTPException(400, str(e))
 
     @app.post("/api/songs/{sid}/review")
-    def review(sid: str, x_jam_key: Optional[str] = Header(None)):
+    def review(sid: str, x_jam_key: Optional[str] = Header(None), lang: Optional[str] = Query(None)):
         guard(x_jam_key)
         m = meta_or_404(sid)
+        from .review import norm_lang
+        if norm_lang(lang):                 # re-run in the language the user is looking at now
+            st.update(sid, lang=norm_lang(lang))
         if not cfg.ai_configured:
             raise HTTPException(409, "AI review is not configured: set JAM_AI_API_KEY (or DEEPSEEK_API_KEY)")
         if m["status"] != "ready":

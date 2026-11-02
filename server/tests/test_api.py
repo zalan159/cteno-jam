@@ -94,6 +94,16 @@ def test_edits_and_revisions_api(client):
     assert r.json()["song"]["analysis"]["chords"][1]["chord"] == "Abm"
 
 
+def test_upload_records_ui_language_and_review_can_override(client):
+    sid = upload(client, title="阳光宅男", lang="zh-CN").json()["id"]
+    assert client.get("/api/songs/%s" % sid).json()["lang"] == "zh"
+    wait_status(client, sid, ("ready",))
+    client.post("/api/songs/%s/review?lang=en" % sid)          # 409 (no key) but the language is recorded first
+    assert client.get("/api/songs/%s" % sid).json()["lang"] == "en"
+    other = upload(client, title="x", lang="klingon").json()["id"]
+    assert "lang" not in client.get("/api/songs/%s" % other).json()
+
+
 def test_review_requires_key(client):
     sid = upload(client).json()["id"]
     wait_status(client, sid, ("ready",))

@@ -3,6 +3,7 @@
 //  * static: a folder of pre-processed songs (demo/index.json + demo/<id>/song.json, stems/*.mp3),
 //    for hosting the player on any static file server (GitHub Pages, a CDN, nginx).
 // The static build sets window.JAM_CONFIG = { static: true, base: "demo/" } in config.js.
+import { getLang } from "./i18n.js";
 const CFG = window.JAM_CONFIG || {};
 export const isStatic = !!CFG.static;
 const KEY = () => localStorage.getItem("jam.key") || "";
@@ -58,7 +59,7 @@ export const api = {
   rename(id, fields) { return j(`/api/songs/${id}`, { method: "PATCH", json: fields }); },
   remove(id) { return j(`/api/songs/${id}`, { method: "DELETE" }); },
   retry(id) { return j(`/api/songs/${id}/retry`, { method: "POST" }); },
-  review(id) { return j(`/api/songs/${id}/review`, { method: "POST" }); },
+  review(id) { return j(`/api/songs/${id}/review?lang=${getLang()}`, { method: "POST" }); },
   edits(id, patches) { return j(`/api/songs/${id}/edits`, { method: "POST", json: { patches } }); },
   revisions(id, ids, status, source) { return j(`/api/songs/${id}/revisions`, { method: "POST", json: { ids, status, source } }); },
   events(onSongs) {

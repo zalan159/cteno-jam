@@ -72,7 +72,7 @@ class Store:
 
     # ---------------------------------------------------------------- meta
     def create(self, title: str, artist: str = "", filename: str = "", sid: Optional[str] = None,
-               lyrics: str = "", demo: bool = False) -> Dict:
+               lyrics: str = "", demo: bool = False, lang: str = "") -> Dict:
         with _lock:
             sid = sid or self.new_id()
             d = self.root / sid
@@ -81,6 +81,8 @@ class Store:
                     "filename": filename[:200], "created": int(time.time()), "updated": int(time.time()),
                     "status": "uploading", "stage": "queued", "progress": 0.0, "error": None, "attempts": 0,
                     "demo": demo, "ai": {"status": "off"}}
+            if lang in ("zh", "en"):
+                meta["lang"] = lang      # uploader's UI language: AI review writes its reasons in it
             write_json(d / "meta.json", meta)
             if lyrics.strip():
                 (d / "lyrics.txt").write_text(lyrics.strip()[:200_000], encoding="utf-8")
@@ -185,5 +187,5 @@ class Store:
 
 def public_meta(m: Dict) -> Dict:
     keep = ("id", "title", "artist", "created", "updated", "status", "stage", "progress", "error", "duration",
-            "demo", "ai", "lyrics_source", "attempts", "timings", "stems", "device", "license")
+            "demo", "ai", "lyrics_source", "attempts", "timings", "stems", "device", "license", "lang")
     return {k: m.get(k) for k in keep if k in m}

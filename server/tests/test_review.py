@@ -121,3 +121,17 @@ def test_review_through_cteno_sdk_with_fake_model(fake_model, sdk_home, tmp_path
     assert all(r["reason"] and r["source"] == "ai" for r in s["revisions"])
     s = st.set_revision_status(m["id"], [r["id"] for r in s["revisions"]], "reverted")
     assert s["analysis"]["chords"] == a["chords"]
+
+
+def test_output_language_follows_ui_language_then_lyrics():
+    zh = song()  # lyrics in the fixture are English
+    assert R.output_lang(zh) == "en"
+    assert R.output_lang(zh, "zh-CN") == "zh" and R.output_lang(zh, "zh") == "zh"
+    assert R.output_lang(zh, "en-US") == "en" and R.output_lang(zh, "fr") == "en"
+    cn = copy.deepcopy(zh)
+    cn["lyrics"]["lines"][0]["text"] = "让我们乘着阳光"
+    assert R.output_lang(cn) == "zh" and R.output_lang(cn, "en") == "en"
+    p = R.user_prompt(cn, "zh")
+    assert "Output language: Simplified Chinese" in p and "Lyrics language: Chinese" in p
+    assert "Output language: English" in R.user_prompt(cn, "en")
+    assert "output language named in the user message" in R.SYSTEM_PROMPT

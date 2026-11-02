@@ -55,8 +55,9 @@ Your jobs, in this order:
    flag_line for timing that looks wrong (units squeezed into <0.05 s, or a line sung over a long
    instrumental gap). Do not rewrite lyric text.
 
-Every patch needs a short, specific "reason" (one sentence, in the language of the lyrics if the
-lyrics are Chinese, otherwise English) that a musician can verify, citing ids, beats or times.
+Every patch needs a short, specific "reason" (one sentence) that a musician can verify, citing ids,
+beats or times. Write every reason and the summary in the output language named in the user message
+(chord symbols, ids and times stay as they are); never switch to another language.
 Use check_patches before you finish and fix rejected patches. Prefer fewer, high-confidence
 patches over many guesses. Finish by returning final_result with a one-paragraph summary and
 the final list of patches (only ones check_patches accepted)."""
@@ -193,14 +194,34 @@ def dry_run(state: Dict, patches: List[Dict]) -> Dict:
     return {"accepted": acc, "rejected": rej}
 
 
-def user_prompt(a: Dict) -> str:
-    lang = "Chinese" if any(P._is_cjk(l["text"]) for l in (a.get("lyrics") or {}).get("lines", [])[:20]) else "English"
+LANG_NAMES = {"zh": "Simplified Chinese (简体中文)", "en": "English"}
+
+
+def norm_lang(lang: Optional[str]) -> Optional[str]:
+    """'zh', 'zh-CN', 'zh-Hans' -> 'zh'; 'en', 'en-US' -> 'en'; anything else -> None."""
+    l = (lang or "").strip().lower()
+    return "zh" if l.startswith("zh") else "en" if l.startswith("en") else None
+
+
+def output_lang(a: Dict, lang: Optional[str] = None) -> str:
+    """Language for reasons and summary: the uploader's UI language when known, else the lyrics' language."""
+    l = norm_lang(lang)
+    if l:
+        return l
+    return "zh" if any(P._is_cjk(x["text"]) for x in (a.get("lyrics") or {}).get("lines", [])[:20]) else "en"
+
+
+def user_prompt(a: Dict, lang: Optional[str] = None) -> str:
+    lyr = "Chinese" if any(P._is_cjk(l["text"]) for l in (a.get("lyrics") or {}).get("lines", [])[:20]) else "English"
+    out = LANG_NAMES[output_lang(a, lang)]
     return ("Proofread this analysis. Start with get_overview, read every chord page and the lyrics, "
-            "then check_patches, then final_result. Lyrics language: %s. Title: %s." % (lang, a.get("title") or "(untitled)"))
+            "then check_patches, then final_result. Lyrics language: %s. Title: %s. "
+            "Output language: %s — write every reason and the summary in %s." % (lyr, a.get("title") or "(untitled)", out, out))
 
 
 async def run_review(state: Dict, *, base_url: str, model: str, api_key: str, api_format: str = "openai",
-                     timeout_s: int = 300, sdk_home: Optional[str] = None, profile_id: str = "cteno-jam-review") -> ReviewResult:
+                     timeout_s: int = 300, sdk_home: Optional[str] = None, profile_id: str = "cteno-jam-review",
+                     lang: Optional[str] = None) -> ReviewResult:
     """One review session. Returns validated patches; does not save anything."""
     from cteno_sdk import AGENT_SPEC_CAPABILITY, AgentSpec, CtenoSession
 
@@ -222,7 +243,7 @@ async def run_review(state: Dict, *, base_url: str, model: str, api_key: str, ap
             metadata={"app": "cteno-jam"},
         ))
         try:
-            r = await cteno.run(sid, user_prompt(snapshot), timeout=timeout_s + 30)
+            r = await cteno.run(sid, user_prompt(snapshot, lang), timeout=timeout_s + 30)
         finally:
             await cteno.close_session(sid)
     secs = time.time() - t0

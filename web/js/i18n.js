@@ -2,7 +2,8 @@
 const S = {
   en: {
     app: "Cteno Jam", tagline: "Upload a song. Get stems, chords and synced lyrics. Play and sing together.",
-    library: "Library", search: "Search songs", upload: "Add a song", upload_hint: "mp3, m4a, wav or flac — straight from your phone works",
+    library: "Library", search: "Search songs", upload: "Add a song", upload_hint: "Tap to choose, or drop a file here · mp3, m4a, wav, flac",
+    upload_btn: "Upload a song", upload_change: "Choose another song", picked: "Selected: {f}",
     title: "Title", artist: "Artist (optional, helps find lyrics)", lyrics_opt: "Lyrics or LRC (optional)", choose_file: "Choose audio file",
     start_upload: "Upload and process", uploading: "Uploading… {p}%", passphrase: "Upload passphrase",
     st_uploading: "Uploading", st_queued: "Waiting in queue", st_processing: "Processing", st_ready: "Ready", st_failed: "Failed",
@@ -46,7 +47,8 @@ const S = {
   },
   zh: {
     app: "Cteno Jam", tagline: "传一首歌，自动拆分轨、扒和弦、对歌词，大家一起弹、一起唱。",
-    library: "曲库", search: "搜索歌曲", upload: "添加歌曲", upload_hint: "支持 mp3、m4a、wav、flac，手机上直接选文件就行",
+    library: "曲库", search: "搜索歌曲", upload: "添加歌曲", upload_hint: "点一下选文件，或把文件拖到这里 · 支持 mp3、m4a、wav、flac",
+    upload_btn: "上传歌曲", upload_change: "换一首", picked: "已选：{f}",
     title: "歌名", artist: "歌手（可选，用来查歌词）", lyrics_opt: "歌词或 LRC（可选）", choose_file: "选择音频文件",
     start_upload: "上传并处理", uploading: "上传中… {p}%", passphrase: "上传口令",
     st_uploading: "上传中", st_queued: "排队中", st_processing: "处理中", st_ready: "可以弹了", st_failed: "失败",

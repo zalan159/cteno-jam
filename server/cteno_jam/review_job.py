@@ -19,7 +19,8 @@ def review(st: store.Store, sid: str, cfg: config.Config) -> dict:
     try:
         res = rv.run_review_sync(song["analysis"], base_url=cfg.ai_base_url, model=cfg.ai_model,
                                  api_key=cfg.ai_api_key, api_format=cfg.ai_api_format,
-                                 timeout_s=cfg.ai_timeout_s, sdk_home=cfg.ai_sdk_home or None)
+                                 timeout_s=cfg.ai_timeout_s, sdk_home=cfg.ai_sdk_home or None,
+                                 lang=st.meta(sid).get("lang"))
     except Exception as e:  # noqa: BLE001 — the review is optional and never fails the song
         log.exception("[%s] review crashed", sid)
         msg = "%s: %s" % (type(e).__name__, str(e)[:300])

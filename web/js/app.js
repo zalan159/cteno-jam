@@ -153,8 +153,11 @@ function songMenu(m) {
 
 function uploadCard() {
   return `<div class="card">
-    <div class="drop" id="drop"><b>${esc(t("upload"))}</b><div class="muted" style="font-size:13px;margin:4px 0 10px">${esc(t("upload_hint"))}</div>
-      <label class="row" style="justify-content:center"><input type="file" id="file" accept="audio/*,.mp3,.m4a,.wav,.flac,.aac,.ogg" style="max-width:100%"></label></div>
+    <label class="drop" id="drop" role="button" tabindex="0" aria-label="${esc(t("upload_btn"))}">
+      <input type="file" id="file" class="vh" accept="audio/*,.mp3,.m4a,.wav,.flac,.aac,.ogg">
+      <span class="upbtn" id="upBtn"><span class="upic" aria-hidden="true">⤒</span>${esc(t("upload_btn"))}</span>
+      <span class="uphint" id="upHint">${esc(t("upload_hint"))}</span>
+      <span class="upfile hidden" id="upFile"></span></label>
     <div class="form hidden" id="upForm">
       <input type="text" id="upTitle" placeholder="${esc(t("title"))}">
       <input type="text" id="upArtist" placeholder="${esc(t("artist"))}">
@@ -169,18 +172,21 @@ function bindUpload() {
   let file = null;
   const pick = fl => {
     if (!fl) return; file = fl; form.classList.remove("hidden");
+    $("#upFile").textContent = t("picked", { f: fl.name }); $("#upFile").classList.remove("hidden");
+    $("#upBtn").lastChild.textContent = t("upload_change");
     if (!$("#upTitle").value) $("#upTitle").value = fl.name.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ");
   };
   f.onchange = () => pick(f.files[0]);
   ["dragenter", "dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
   ["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
   drop.addEventListener("drop", ev => pick(ev.dataTransfer.files[0]));
+  drop.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); f.click(); } });
   $("#upGo").onclick = async () => {
     if (!file) return;
     if ($("#upKey")) api.setKey($("#upKey").value);
     $("#upGo").disabled = true; $("#upProg").classList.remove("hidden"); $("#upMsg").textContent = "";
     try {
-      await api.upload(file, { title: $("#upTitle").value, artist: $("#upArtist").value, lyrics: $("#upLyrics").value },
+      await api.upload(file, { title: $("#upTitle").value, artist: $("#upArtist").value, lyrics: $("#upLyrics").value, lang: getLang() },
         p => { $("#upProg i").style.width = (p * 100).toFixed(0) + "%"; $("#upMsg").textContent = t("uploading", { p: Math.round(p * 100) }); });
       route();
     } catch (e) {
