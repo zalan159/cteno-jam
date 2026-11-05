@@ -50,6 +50,7 @@ input[type=range]{accent-color:var(--sung)}
 #upLabel{white-space:nowrap}
 .uphint{font-size:13px;color:var(--dim)}
 .upfile{font-size:14px;color:var(--fg);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upfile.err{color:var(--err);white-space:normal;line-height:1.45}
 .form{display:grid;gap:10px;margin-top:12px}
 details summary{cursor:pointer;color:var(--dim)}
 

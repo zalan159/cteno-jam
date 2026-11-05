@@ -360,3 +360,25 @@ test("failed upload shows the reason and can be retried", async ({ page, request
   await row.locator("[data-act=menu]").click();
   await page.click("#rnDel");
 });
+
+test("encrypted music-app files are refused with a plain message", async ({ page }) => {
+  await page.goto("/?lang=zh");
+  const dir = test.info().outputDir; fs.mkdirSync(dir, { recursive: true });
+  // 1. picked by name: told at once, no upload form
+  const mgg = path.join(dir, "Price Tag [mqms2].mgg2");
+  fs.writeFileSync(mgg, Buffer.alloc(4096, 0x8a));
+  await page.setInputFiles("#file", mgg);
+  await expect(page.locator("#upFile")).toContainText("QQ 音乐的加密文件");
+  await expect(page.locator("#upForm")).toBeHidden();
+  await shot(page, "21-encrypted-picked");
+  // 2. renamed to .flac: the server sniffs the QQ Music trailer and answers 415 with the same message
+  const flac = path.join(dir, "renamed.flac");
+  fs.writeFileSync(flac, Buffer.concat([Buffer.alloc(4096, 0x8a), Buffer.from("5010487,2,004KannO2MlVCc"), Buffer.from([0, 0, 0, 26]), Buffer.from("STag")]));
+  await page.setInputFiles("#file", flac);
+  await expect(page.locator("#upForm")).toBeVisible();
+  await page.fill("#upTitle", "encrypted renamed " + Date.now() % 10000);
+  await page.click("#upGo");
+  await expect(page.locator("#upMsg")).toContainText("QQ 音乐的加密文件");
+  await expect(page.locator(".song", { hasText: "encrypted renamed" })).toHaveCount(0);
+  await shot(page, "22-encrypted-refused");
+});

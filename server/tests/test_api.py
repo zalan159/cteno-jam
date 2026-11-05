@@ -234,3 +234,21 @@ def test_events_stream_carries_queue_position(tmp_path):
             line = next(l for l in r.iter_lines() if l.startswith("data:"))
         songs = json.loads(line[5:])["songs"]
         assert sorted(s["queue_position"] for s in songs if s["status"] == "queued") == [1, 2]
+
+
+def test_encrypted_upload_refused_with_friendly_message(client):
+    tail = b"\x8a\x13" * 2048 + b"5010487,2,004KannO2MlVCc" + (26).to_bytes(4, "big") + b"STag"
+    for name in ("Price Tag [mqms2].mgg2.flac", "Price Tag.mgg2", "Price Tag.mflac"):
+        r = upload(client, name=name, data=tail, lang="zh")
+        assert r.status_code == 415, (name, r.text)
+        assert "QQ 音乐" in r.json()["detail"] and "加密" in r.json()["detail"]
+    r = upload(client, name="x.ncm", data=b"CTENFDAM" + b"\0" * 64, lang="en")
+    assert r.status_code == 415 and "NetEase" in r.json()["detail"]
+    r = upload(client, name="x.mp3", data=b"CTENFDAM" + b"\0" * 64)  # renamed, no lang -> English
+    assert r.status_code == 415 and "NetEase" in r.json()["detail"]
+    assert client.get("/api/songs").json()["songs"] == []  # nothing left behind
+
+
+def test_info_lists_encrypted_extensions(client):
+    enc = client.get("/api/info").json()["encrypted_ext"]
+    assert ".mgg" in enc and ".ncm" in enc and ".m4p" in enc

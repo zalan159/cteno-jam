@@ -6,6 +6,7 @@ import { Sync, randomRoom } from "./sync.js";
 import { buildChart, chartOptions, aiTouched, sectionAt, chordAt } from "./chart.js";
 import { diagramSVG } from "./diagrams.js";
 import { parseChord, transpose } from "./theory.js";
+import { encryptedFamily } from "./upload_check.js";
 import qrcode from "../vendor/qrcode.mjs";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -171,8 +172,16 @@ function bindUpload() {
   const f = $("#file"), form = $("#upForm"), drop = $("#drop");
   let file = null;
   const pick = fl => {
-    if (!fl) return; file = fl; form.classList.remove("hidden");
+    if (!fl) return;
     $("#upFile").textContent = t("picked", { f: fl.name }); $("#upFile").classList.remove("hidden");
+    const fam = encryptedFamily(fl.name);
+    if (fam) {  // encrypted music-app download: say so now instead of after the upload
+      file = null; f.value = ""; form.classList.add("hidden");
+      $("#upFile").textContent = t("enc_file", { app: t("app_" + fam) }); $("#upFile").classList.add("err");
+      return;
+    }
+    $("#upFile").classList.remove("err");
+    file = fl; form.classList.remove("hidden");
     $("#upLabel").textContent = t("upload_change");
     if (!$("#upTitle").value) $("#upTitle").value = fl.name.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ");
   };

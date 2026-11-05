@@ -54,6 +54,13 @@ class Progress:
         return self.t
 
 
+def unreadable_message(src: Path, filename: str, lang: str) -> str:
+    """ffmpeg could not read the upload: name the music app when it is an encrypted download."""
+    from .pipeline import drm
+    fam = drm.sniff(src, filename)
+    return drm.message(fam, lang) if fam else drm.unreadable(lang)
+
+
 def process(sid: str, cfg: config.Config) -> None:
     st = store.Store(cfg.songs_dir)
     meta = st.meta(sid)
@@ -69,16 +76,22 @@ def process(sid: str, cfg: config.Config) -> None:
 
     # ---- decode
     pr.stage("decode")
+    lang = meta.get("lang") or ""
     try:
         dur = audio.probe_duration(src)
     except audio.AudioError as e:
-        raise JobError(str(e))
+        log.info("[%s] probe failed: %s", sid, e)
+        raise JobError(unreadable_message(src, meta.get("filename") or "", lang))
     if dur < 5:
         raise JobError("the recording is too short (%.1f s); upload at least 5 seconds" % dur)
     if dur > cfg.max_duration_s:
         raise JobError("the recording is %d min long; the limit is %d min (JAM_MAX_DURATION_S)" % (dur // 60, cfg.max_duration_s // 60))
     mix = work / "mix.wav"
-    audio.decode(src, mix, sr=44100, channels=2)
+    try:
+        audio.decode(src, mix, sr=44100, channels=2)
+    except audio.AudioError as e:
+        log.info("[%s] decode failed: %s", sid, e)
+        raise JobError(unreadable_message(src, meta.get("filename") or "", lang))
     st.update(sid, duration=round(dur, 2))
 
     # ---- separate

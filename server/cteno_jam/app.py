@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__, config, patches as P, store
 from .jobs import JobQueue
+from .pipeline import drm
 from .pipeline.audio import ALLOWED_EXT
 from .rooms import Rooms, new_code
 
@@ -94,6 +95,12 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
                 recent.append(now)
                 hits[ip] = recent
 
+    def refund(request: Request):
+        """A refused upload should not count against the uploader's hourly limit."""
+        recent = hits.get(client_ip(request))
+        if recent:
+            recent.pop()
+
     def meta_or_404(sid: str):
         try:
             return st.meta(sid)
@@ -105,6 +112,7 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         return {"name": "Cteno Jam", "version": __version__, "mode": cfg.mode, "upload": cfg.processing,
                 "needs_key": bool(cfg.admin_key), "public_url": cfg.public_url, "max_upload_mb": cfg.max_upload_mb,
                 "max_duration_s": cfg.max_duration_s, "formats": sorted(ALLOWED_EXT),
+                "encrypted_ext": drm.ENCRYPTED_EXT,
                 "ai": {"configured": cfg.ai_configured, "model": cfg.ai_model if cfg.ai_configured else None},
                 "room": new_code()}
 
@@ -128,11 +136,14 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
             raise HTTPException(403, "this server is player-only (JAM_MODE=player); uploads are disabled")
         name = os.path.basename(file.filename or "upload")
         ext = os.path.splitext(name)[1].lower()
+        from .review import norm_lang
+        fam = drm.family_from_name(ext)  # a .mgg2/.ncm/... ending; "x.mgg2.flac" is judged by its content below
+        if fam:
+            raise HTTPException(415, drm.message(fam, norm_lang(lang)))
         if ext not in ALLOWED_EXT:
             raise HTTPException(415, "unsupported file type '%s'; use mp3, m4a, wav or flac" % (ext or "?"))
         upload_guards(request)
         title = title.strip() or os.path.splitext(name)[0]
-        from .review import norm_lang
         m = st.create(title, artist, name, lyrics=lyrics, lang=norm_lang(lang) or "")
         dest = st.dir(m["id"]) / ("original" + ext)
         limit = cfg.max_upload_mb * 1024 * 1024
@@ -153,6 +164,11 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         if size == 0:
             st.delete(m["id"])
             raise HTTPException(400, "empty file")
+        fam = drm.sniff(dest, name)
+        if fam:  # encrypted music-app download renamed to .mp3/.flac: refuse it now, not after queueing
+            st.delete(m["id"])
+            refund(request)
+            raise HTTPException(415, drm.message(fam, norm_lang(lang)))
         st.update(m["id"], size=size)
         pos = jobs.submit(m["id"])
         return {**store.public_meta(st.meta(m["id"])), "queue_position": pos}
