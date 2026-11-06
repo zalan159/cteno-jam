@@ -75,3 +75,15 @@ and `JAM_MAX_DISK_PERCENT=80`, and the relay answers 403 to rename/delete/edit/r
 cannot touch other people's songs. One 4-minute song takes about 42 s on the GPU (~2 GB VRAM peak).
 
 2026-11-02 起 jam.cteno.cn 是完整实例（可上传、可处理），跑在办公室一张 RTX 4090 上，经云上中转（Caddy 签证书，frp 隧道到显卡机）对外。不设口令，靠上面这几项限制防刷；中转层对重命名/删除/编辑/重试/AI 校对一律返回 403，访客动不了别人的歌。一首 4 分钟的歌在 GPU 上约 42 秒处理完，显存峰值约 2GB。
+
+**Jamendo + popularity (2026-11-07).** The jam container reads `JAM_JAMENDO_CLIENT_ID` from
+`/models/cteno-jam/jamendo.env` (mode 600, `env_file` in docker-compose.yml; the value is in the vault as
+`jam/JAM_JAMENDO_CLIENT_ID`, developer account `ctenojam` / zal@cteno.ai, password `jam/JAMENDO_DEV_PASSWORD`).
+Play counts live in `data/songs/.plays.json`. The relay additionally lets two POSTs through to the public:
+`/api/jamendo/import` (same queue/rate/disk guards as an upload) and `/api/songs/{id}/play`.
+
+**Jamendo 与热度（2026-11-07）**：jam 容器从 `/models/cteno-jam/jamendo.env`（权限 600，compose 里用 `env_file`）读
+`JAM_JAMENDO_CLIENT_ID`，值在保险箱 `jam/JAM_JAMENDO_CLIENT_ID`（开发者账号 `ctenojam` / zal@cteno.ai，密码
+`jam/JAMENDO_DEV_PASSWORD`）。播放次数存在 `data/songs/.plays.json`。中转层对公网额外放行两个 POST：
+`/api/jamendo/import`（和上传一样受队列、限频、磁盘限制）和 `/api/songs/{id}/play`。
+
