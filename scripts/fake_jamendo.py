@@ -19,15 +19,16 @@ DEMO = sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.path.dirname(__file
 TRACKS = [
     {"id": "900001", "name": "Twinkle Twinkle (e2e)", "artist_name": "Cteno Demo Band", "album_name": "Nursery", "file": "twinkle.mp3",
      "duration": 65, "audiodownload_allowed": True, "license_ccurl": "http://creativecommons.org/licenses/by-sa/3.0/",
-     "listens": 1234567},
+     "listens": 1234567, "popularity": 3},
     {"id": "900004", "name": "Twinkle Lullaby (e2e)", "artist_name": "Quiet Band", "album_name": "Night", "file": "twinkle.mp3",
-     "duration": 65, "audiodownload_allowed": True, "license_ccurl": "http://creativecommons.org/licenses/by/4.0/", "listens": 800},
+     "duration": 65, "audiodownload_allowed": True, "license_ccurl": "http://creativecommons.org/licenses/by/4.0/", "listens": 800,
+     "popularity": 2},   # like the real API: popularity_total is not the listen count (800 ranks above 12,345 here)
     {"id": "900002", "name": "Frère Jacques (e2e)", "artist_name": "Cteno Demo Band", "album_name": "Nursery", "file": "frere-jacques.mp3",
      "duration": 60, "audiodownload_allowed": True, "license_ccurl": "http://creativecommons.org/licenses/by-nc/3.0/",
-     "listens": 12345},
+     "listens": 12345, "popularity": 1},
     {"id": "900003", "name": "Locked Track (must not appear)", "artist_name": "No Downloads", "album_name": "", "file": "twinkle.mp3",
      "duration": 65, "audiodownload_allowed": False, "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
-     "listens": 99999999},
+     "listens": 99999999, "popularity": 9},
 ]
 
 
@@ -45,10 +46,10 @@ class H(BaseHTTPRequestHandler):
                 s = q["search"].lower()
                 rows = [t for t in rows if s in (t["name"] + " " + t["artist_name"]).lower()]
             if q.get("order") == "popularity_total":
-                rows = sorted(rows, key=lambda t: -t["listens"])   # like Jamendo: most popular first
+                rows = sorted(rows, key=lambda t: -t["popularity"])   # Jamendo's composite popularity, not listens
             res = []
             for t in rows:
-                r = {k: v for k, v in t.items() if k not in ("file", "listens")}
+                r = {k: v for k, v in t.items() if k not in ("file", "listens", "popularity")}
                 if "stats" in q.get("include", ""):
                     r["stats"] = {"rate_listened_total": t["listens"], "rate_downloads_total": t["listens"] // 2}
                 r.update(image="", shareurl="https://www.jamendo.com/track/%s" % t["id"],

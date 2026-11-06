@@ -178,7 +178,8 @@ test("files from WeChat / Files: no extension, wrong kind, Android WeChat accept
 });
 
 // Mixed search: local songs and Jamendo results in one list, most popular first.
-// Fake Jamendo listens: Twinkle Twinkle 1,234,567 · Frère Jacques 12,345 · Twinkle Lullaby 800 (and a locked track).
+// Fake Jamendo listens: Twinkle Twinkle 1,234,567 · Frère Jacques 12,345 · Twinkle Lullaby 800 (and a locked track);
+// its popularity order is deliberately not by listens (Lullaby 800 before Frère Jacques 12,345), like the real API.
 // Our local "Twinkle Star" gets 2 plays -> score 2 x 1000 = 2000, so the expected order for "twinkle" is
 // Twinkle Twinkle (Jamendo, 1.23M) > Twinkle Star (local, 2000) > Twinkle Lullaby (Jamendo, 800).
 test("search mixes the library with Jamendo by popularity; tap a result to use it; plays are counted", async ({ page, request }, info) => {
@@ -223,6 +224,14 @@ test("search mixes the library with Jamendo by popularity; tap a result to use i
   await expect(page.locator(".song")).toHaveCount(0);
 
   // tap the Jamendo row itself: it is imported and then lives in the library with its license
+  await page.fill("#q", "twinkle");
+  await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(2);
+  // "e2e" matches all three Jamendo tracks: Jamendo sent Lullaby (800) before Frère Jacques (12,345); the list shows by number
+  await page.fill("#q", "(e2e)");
+  await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(3);
+  const byNum = (await page.evaluate(() => window.__jamList)).filter(r => r.kind === "jamendo").map(r => r.listens);
+  note("jamendo-order", { proj: info.project.name, byNum });
+  expect(byNum).toEqual([1234567, 12345, 800]);
   await page.fill("#q", "twinkle");
   await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(2);
   await page.locator(".song").nth(0).locator(".info").click();

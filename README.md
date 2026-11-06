@@ -128,7 +128,7 @@ cteno-jam                      # http://localhost:8765
 All settings are environment variables, documented in [`.env.example`](.env.example).
 Optional: `JAM_JAMENDO_CLIENT_ID` (free id from devportal.jamendo.com) makes the library search also query Jamendo's Creative Commons catalogue through the server and mix the results in; without it the search stays local and nothing else changes.
 
-Popularity: local songs count plays on the server (`POST /api/songs/{id}/play` when playback really starts or a jam starts; the same browser session within 30 s counts once; stored in `data/songs/.plays.json`). Jamendo results carry Jamendo's all-time listen counter and come in `order=popularity_total`. Mixed lists compare `plays × 1000` with Jamendo listens (one play here ≈ 1000 listens on Jamendo, whose audience is far larger), keep each source's own order, and let the local song win a tie; a Jamendo track already imported is shown once, as the library copy. See `web/js/popularity.js`.
+Popularity: local songs count plays on the server (`POST /api/songs/{id}/play` when playback really starts or a jam starts; the same browser session within 30 s counts once; stored in `data/songs/.plays.json`). Jamendo results carry Jamendo's all-time listen counter and come in `order=popularity_total`. Mixed lists compare `plays × 1000` with Jamendo listens (one play here ≈ 1000 listens on Jamendo, whose audience is far larger) and sort by that, highest first (Jamendo's `popularity_total` picks which tracks come back, but its order is not by listens); the local song wins a tie; a Jamendo track already imported is shown once, as the library copy. See `web/js/popularity.js`.
 For a public server set `JAM_PUBLIC_URL`, and either `JAM_ADMIN_KEY` (upload/edit passphrase) or the
 open-upload guards `JAM_MAX_QUEUE`, `JAM_UPLOADS_PER_IP_HOUR` and `JAM_MAX_DISK_PERCENT` (what jam.cteno.cn uses;
 put a reverse proxy in front that sets `X-Forwarded-For` and blocks delete/edit from the internet).
@@ -219,7 +219,7 @@ Docker image) and the Whisper model (~480 MB for `small`, only if no lyrics are 
 
 ### 能做什么
 
-1. **上传**：mp3 / m4a / wav / flac / amr，手机上可以从「文件」或微信聊天记录里选；也可以在网页里**直接录一段**，或者直接在曲库搜索框里搜：配置了 `JAM_JAMENDO_CLIENT_ID` 时，同一个搜索框也会搜 **Jamendo 免费曲库**，结果和本地曲库排在一起（只列作者允许下载的曲目，标出来源和许可证），点一下就能用；没配就只搜本地。每首歌显示热度（▶ 1.2万），列表按热度排序：本地歌按本站播放次数（真正开始播放或开合奏时 +1，同一会话 30 秒内只算一次），Jamendo 用它的累计收听数；混排时本地 1 次播放折算 1000 次 Jamendo 收听，分数高的在前，相同时本地在前。进入后台队列，能看到每一步和进度；失败会写明原因，可以重试。曲库支持搜索、改名、删除。
+1. **上传**：mp3 / m4a / wav / flac / amr，手机上可以从「文件」或微信聊天记录里选；也可以在网页里**直接录一段**，或者直接在曲库搜索框里搜：配置了 `JAM_JAMENDO_CLIENT_ID` 时，同一个搜索框也会搜 **Jamendo 免费曲库**，结果和本地曲库排在一起（只列作者允许下载的曲目，标出来源和许可证），点一下就能用；没配就只搜本地。每首歌显示热度（▶ 1.2万），列表按热度排序：本地歌按本站播放次数（真正开始播放或开合奏时 +1，同一会话 30 秒内只算一次），Jamendo 用它的累计收听数；混排时本地 1 次播放折算 1000 次 Jamendo 收听，整张表按这个分数从高到低排（Jamendo 的 popularity_total 决定返回哪些歌，但它的顺序不是按收听数），相同时本地在前。进入后台队列，能看到每一步和进度；失败会写明原因，可以重试。曲库支持搜索、改名、删除。
 2. **自动处理**
    - 用 Demucs `htdemucs_6s` 拆成 6 轨：人声、吉他、钢琴、贝斯、鼓、其他
    - 调性、BPM、节拍和强拍；按拍识别和弦（色度模板 + 贝斯根音 + Viterbi 平滑）

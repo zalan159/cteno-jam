@@ -31,11 +31,13 @@ test("mixed list: 1 local play = JAMENDO_PER_PLAY Jamendo listens, merged by sco
   assert.deepEqual(r.map(x => x.score), [13845501, 50000, 50000, 3000, 3000, 10, 0]);
 });
 
-test("mixed list keeps Jamendo's own order and drops tracks already imported", () => {
+test("mixed list is sorted by the shown number even when Jamendo's popularity order is not; imported tracks shown once", () => {
   const local = [{ id: "x", plays: 1, source: { kind: "jamendo", id: "77" } }];
-  const jm = [{ id: "5", listens: 10 }, { id: "77", listens: 9 }, { id: "6", listens: 20 }];   // API order is kept even if not monotonic
+  // real API, q=love, order=popularity_total: 2,129,137 came before 2,670,241
+  const jm = [{ id: "5", listens: 2129137 }, { id: "77", listens: 9 }, { id: "6", listens: 2670241 }, { id: "7", listens: 1000 }];
   const r = mixResults(local, jm);
-  assert.deepEqual(r.map(x => x.kind === "local" ? "L:" + x.song.id : "J:" + x.track.id), ["L:x", "J:5", "J:6"]);
+  assert.deepEqual(r.map(x => x.kind === "local" ? "L:" + x.song.id : "J:" + x.track.id), ["J:6", "J:5", "L:x", "J:7"]);   // L:x 1000 ties J:7 -> local first
+  const scores = r.map(x => x.score); assert.deepEqual(scores, [...scores].sort((a, b) => b - a));
   assert.deepEqual(mixResults([], []), []);
   assert.deepEqual(mixResults(null, [{ id: "1" }]).map(x => x.kind), ["jamendo"]);
 });
