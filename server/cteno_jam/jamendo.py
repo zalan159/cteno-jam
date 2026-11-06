@@ -19,6 +19,8 @@ from typing import Dict, List, Optional
 
 UA = "CtenoJam/0.1 (self-hosted; jamendo)"
 _preview: Dict[str, tuple] = {}   # track id -> (stream url, time) from recent searches
+_search_cache: Dict[str, tuple] = {}   # request params -> (non-empty result, time); typing in the search box repeats queries
+SEARCH_TTL = 600
 
 
 class JamendoError(RuntimeError):
@@ -79,7 +81,19 @@ def search(cfg, q: str = "", offset: int = 0, limit: int = 20) -> Dict:
               "audioformat": "mp31", "audiodlformat": "mp32", "imagesize": 100, "order": "popularity_total"}
     if q.strip():
         params["search"] = q.strip()[:100]
-    body = _get(cfg, "/tracks/", params)
+    key = json.dumps(params, sort_keys=True)
+    hit = _search_cache.get(key)
+    if hit and time.time() - hit[1] < SEARCH_TTL:
+        return hit[0]
+    # Jamendo sometimes answers "success" with no results and results_fullcount null (seen 2026-11-06 with
+    # the same query alternating 20/0/20). A real "nothing found" says results_fullcount 0, so retry the
+    # null ones a couple of times before believing them.
+    for attempt in range(3):
+        body = _get(cfg, "/tracks/", params)
+        h = body.get("headers") or {}
+        if body.get("results") or h.get("results_fullcount") not in (None, ""):
+            break
+        time.sleep(0.3 * (attempt + 1))
     out: List[Dict] = []
     now = time.time()
     for t in body.get("results") or []:
@@ -92,8 +106,14 @@ def search(cfg, q: str = "", offset: int = 0, limit: int = 20) -> Dict:
         for k in sorted(_preview, key=lambda k: _preview[k][1])[:1000]:
             _preview.pop(k, None)
     total = (body.get("headers") or {}).get("results_fullcount")
-    return {"results": out, "offset": params["offset"], "next": params["offset"] + params["limit"]
-            if len(body.get("results") or []) >= params["limit"] else None, "total": total}
+    res = {"results": out, "offset": params["offset"], "next": params["offset"] + params["limit"]
+           if len(body.get("results") or []) >= params["limit"] else None, "total": total}
+    if body.get("results"):
+        _search_cache[key] = (res, now)
+        if len(_search_cache) > 500:
+            for k in sorted(_search_cache, key=lambda k: _search_cache[k][1])[:250]:
+                _search_cache.pop(k, None)
+    return res
 
 
 def track(cfg, tid: str) -> Optional[Dict]:

@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from fastapi.testclient import TestClient
 
-from cteno_jam import app as appmod, config
+from cteno_jam import app as appmod, config, jamendo
 from cteno_jam.pipeline import audio
 
 from test_api import wait_status
@@ -34,6 +34,7 @@ TRACKS = [
 
 class FakeJamendo(BaseHTTPRequestHandler):
     seen = []
+    flaky = 0      # answer this many searches with Jamendo's bogus "success, 0 results, fullcount null"
 
     def log_message(self, *a):
         pass
@@ -46,6 +47,9 @@ class FakeJamendo(BaseHTTPRequestHandler):
         if u.path == "/v3.0/tracks/":
             if q.get("client_id") != CLIENT_ID:
                 return self.reply(200, {"headers": {"status": "failed", "error_message": "invalid client id"}, "results": []})
+            if FakeJamendo.flaky and not q.get("id"):
+                FakeJamendo.flaky -= 1
+                return self.reply(200, {"headers": {"status": "success", "results_count": 0, "results_fullcount": None}, "results": []})
             rows = [t for t in TRACKS if not q.get("id") or t["id"] == q["id"]]
             if q.get("search"):
                 rows = [t for t in rows if q["search"].lower() in (t["name"] + t["artist_name"]).lower()]
@@ -86,6 +90,8 @@ def fake_jamendo():
     srv = ThreadingHTTPServer(("127.0.0.1", 0), FakeJamendo)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     FakeJamendo.seen = []
+    FakeJamendo.flaky = 0
+    jamendo._search_cache.clear()
     yield "http://127.0.0.1:%d/v3.0" % srv.server_address[1]
     srv.shutdown()
 
@@ -248,3 +254,18 @@ def test_search_without_client_id_is_local_only(tmp_path, monkeypatch):
     with make_client(tmp_path, monkeypatch) as c:
         assert c.get("/api/info").json()["jamendo"] is False
         assert c.get("/api/songs?q=anything").status_code == 200
+
+
+def test_jamendo_bogus_empty_answers_are_retried_and_good_ones_cached(tmp_path, monkeypatch, fake_jamendo):
+    monkeypatch.setattr(jamendo.time, "sleep", lambda s: None)
+    with make_client(tmp_path, monkeypatch, jamendo_client_id=CLIENT_ID, jamendo_api_url=fake_jamendo) as c:
+        FakeJamendo.flaky = 2
+        assert [t["id"] for t in c.get("/api/jamendo/search?q=open").json()["results"]] == ["1001"]
+        searches = [p for p, q, _ in FakeJamendo.seen if p == "/v3.0/tracks/" and not q.get("id")]
+        assert len(searches) == 3
+        c.get("/api/jamendo/search?q=open")                          # cached: no new request
+        assert len([p for p, q, _ in FakeJamendo.seen if p == "/v3.0/tracks/" and not q.get("id")]) == 3
+        # a real "nothing found" (fullcount 0) is not retried
+        before = len(FakeJamendo.seen)
+        assert c.get("/api/jamendo/search?q=zzzz").json()["results"] == []
+        assert len(FakeJamendo.seen) == before + 1
