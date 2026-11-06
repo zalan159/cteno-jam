@@ -5,6 +5,7 @@
 import { test, expect } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
+import { deleteFromPage, deleteWithToken } from "./owner.js";
 
 const EVID = process.env.JAM_EVIDENCE || "../docs/evidence/e2e";
 const DEMO = process.env.JAM_DEMO_DIR || "../demo/source";
@@ -32,7 +33,8 @@ async function waitProcessed(request, id, ms = 10 * 60_000) {
     await new Promise(r => setTimeout(r, 800));
   }
 }
-async function remove(request, id) { await request.delete(`/api/songs/${id}`).catch(() => {}); }
+// clean up a song created by this page's browser (its management token is in the page's localStorage)
+async function remove(page, request, id) { await deleteFromPage(page, request, id); }
 async function fitsPhone(page) {
   return page.evaluate(() => {
     const vw = document.documentElement.clientWidth;
@@ -114,7 +116,7 @@ test("record in the browser → use it → it is processed like an upload", asyn
   note("recording-processed", { proj: info.project.name, id, status: m.status, error: m.error, duration: m.duration, seconds: m.seconds });
   expect(m.status, m.error || "").toBe("ready");
   expect(m.duration).toBeGreaterThan(5);
-  await remove(request, id);
+  await remove(page, request, id);
 });
 
 test("microphone blocked: a plain message, and the upload still works", async ({ page }, info) => {
@@ -173,7 +175,7 @@ test("files from WeChat / Files: no extension, wrong kind, Android WeChat accept
       const s = (await (await request.get("/api/songs?q=" + encodeURIComponent(title))).json()).songs[0];
       note("wechat-noext-upload", { proj: info.project.name, id: s.id, status: s.status });
       expect(["queued", "processing", "ready"]).toContain(s.status);
-      await remove(request, s.id);
+      await remove(page, request, s.id);
       // the encrypted-download refusal still applies here
       await openUpload(page);   // the sheet closed itself after the upload above
       const ncm = path.join(dir, "歌.ncm"); fs.writeFileSync(ncm, Buffer.concat([Buffer.from("CTENFDAM"), Buffer.alloc(256)]));
@@ -198,6 +200,7 @@ test("search mixes the library with Jamendo by popularity; tap a result to use i
   const up = await request.post("/api/songs", { multipart: { file: { name: "twinkle.mp3", mimeType: "audio/mpeg", buffer: fs.readFileSync(AUDIO) }, title } });
   expect(up.status(), await up.text()).toBe(201);
   const local = await up.json();
+  expect(local.owner_token).toBeTruthy();
   expect((await waitProcessed(request, local.id)).status).toBe("ready");
   for (const s of ["e2e-sess-aaaa", "e2e-sess-bbbb", "e2e-sess-bbbb"]) await request.post(`/api/songs/${local.id}/play`, { data: { session: s } });
   expect((await (await request.get(`/api/songs/${local.id}`)).json()).plays).toBe(2);    // the repeat within 30 s is not counted
@@ -206,7 +209,8 @@ test("search mixes the library with Jamendo by popularity; tap a result to use i
   await openSearch(page);
   await page.fill("#q", "twinkle");
   await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(2);
-  const rows = await page.evaluate(() => window.__jamList);
+  // the bundled demo songs (seeded for the relay suite) have 0 plays and sort last; leave them out here
+  const rows = (await page.evaluate(() => window.__jamList)).filter(r => !String(r.id).startsWith("demo-"));
   note("mixed", { proj: info.project.name, rows });
   expect(rows.map(r => r.title)).toEqual(["Twinkle Twinkle (e2e)", title, "Twinkle Lullaby (e2e)"]);
   expect(rows.map(r => r.kind)).toEqual(["jamendo", "local", "jamendo"]);
@@ -289,5 +293,5 @@ test("search mixes the library with Jamendo by popularity; tap a result to use i
   expect(counts).toEqual([...counts].sort((a, b) => b - a));
   expect(lib[0]).toEqual([title, 2]);
   await shot(page, `39-library-plays-${lang}`, true);
-  await remove(request, s.id); await remove(request, local.id);
+  await remove(page, request, s.id); await deleteWithToken(request, local.id, local.owner_token);
 });

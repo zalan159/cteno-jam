@@ -93,6 +93,15 @@ async function libraryView(q) {
   let tab = TABS.includes(q.get("tab")) ? q.get("tab") : "hot", searchOpen = !!query;
   const charts = { hot: { state: "idle", results: [] }, zh: { state: "idle", results: [] } };
   let jmTimer = 0, jmSeq = 0, previewId = null;
+  // A Jamendo track tapped with "use" opens its chart by itself once processing is done, unless the person has
+  // moved on in the meantime (switched tab, searched, opened the upload sheet).
+  let openWhenReady = null;
+  const checkReady = () => {
+    const m = openWhenReady && songs.find(s => s.id === openWhenReady);
+    if (m && m.status === "ready") { openWhenReady = null; go(`#/s/${m.id}`); }
+    else if (m && m.status === "failed") openWhenReady = null;
+  };
+  window.__jamOpenWhenReady = () => openWhenReady;
   const jmOn = () => INFO.jamendo && !isStatic;
   const audio = new Audio(); audio.preload = "none"; audio.id = "jmAudio";
   onCleanup(() => { clearTimeout(jmTimer); audio.pause(); audio.removeAttribute("src"); });
@@ -111,13 +120,13 @@ async function libraryView(q) {
         ${!INFO.upload && !isStatic ? `<div class="card muted">${esc(t("no_upload"))}</div>` : ""}
       </main>`;
     bindLang(render);
-    app.querySelectorAll(".tab").forEach(b => b.onclick = () => { tab = b.dataset.tab; app.querySelectorAll(".tab").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); }); loadChart(); lastHtml = ""; drawSongs(); });
+    app.querySelectorAll(".tab").forEach(b => b.onclick = () => { openWhenReady = null; tab = b.dataset.tab; app.querySelectorAll(".tab").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); }); loadChart(); lastHtml = ""; drawSongs(); });
     $("#searchBtn").onclick = () => {
       searchOpen = !searchOpen || !!query; const el = $("#q"); el.classList.toggle("hidden", !searchOpen);
       if (searchOpen) el.focus();
     };
-    if ($("#upOpen")) $("#upOpen").onclick = () => uploadSheet();
-    $("#q").oninput = e => { query = e.target.value; lastHtml = ""; drawSongs(); askJamendo(); };
+    if ($("#upOpen")) $("#upOpen").onclick = () => { openWhenReady = null; uploadSheet(); };
+    $("#q").oninput = e => { openWhenReady = null; query = e.target.value; lastHtml = ""; drawSongs(); askJamendo(); };
     $("#q").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); clearTimeout(jmTimer); askJamendo(0); e.target.blur(); } };
     lastHtml = ""; drawSongs();
   };
@@ -173,8 +182,8 @@ async function libraryView(q) {
       </div>
       <div class="acts">
         ${m.status === "ready" ? `<button class="primary" data-act="open">${esc(t("open"))}</button>` : ""}
-        ${m.status === "failed" && !isStatic ? `<button data-act="retry">${esc(t("retry"))}</button>` : ""}
-        ${!isStatic && INFO.upload ? `<button class="ghost" data-act="menu" aria-label="more">⋯</button>` : ""}
+        ${m.status === "failed" && api.canManage(m, INFO) ? `<button data-act="retry">${esc(t("retry"))}</button>` : ""}
+        ${INFO.upload && !m.demo && api.canManage(m, INFO) ? `<button class="ghost" data-act="menu" aria-label="more">⋯</button>` : ""}
       </div></div>`;
   };
   const jmRow = r => `<div class="song" data-kind="jamendo" data-id="${esc(r.id)}">
@@ -249,7 +258,10 @@ async function libraryView(q) {
           const m = await api.jamendoImport(id, getLang());
           if (previewId === id) audio.pause();
           if (m.status === "ready") return go(`#/s/${m.id}`);
+          openWhenReady = m.id;
           toast(t("jm_added", { t: r.title }), 3000);
+          // show the queued copy with its progress: the hot/Chinese lists only show ready library songs
+          if (!query.trim() && tab !== "mine") { tab = "mine"; render(); }
           await list();
         } catch (e) { toast(e.message, 4000); row.classList.remove("busy"); b.disabled = false; b.textContent = t("jm_use"); }
       };
@@ -273,7 +285,7 @@ async function libraryView(q) {
   loadChart();
   await list();
   askJamendo(0);
-  onCleanup(api.events(s => { songs = s; drawSongs(); }));
+  onCleanup(api.events(s => { songs = s; drawSongs(); checkReady(); }));
 }
 
 const SEARCH_SVG = `<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>`;
@@ -342,6 +354,7 @@ function bindUpload(onDone) {
     const fam = encryptedFamily(fl.name);
     if (fam) return refuse(t("enc_file", { app: t("app_" + fam) }));  // encrypted music-app download: say so now
     if (checkPicked(fl.name, fl.type) === "not_audio") return refuse(t("not_audio", { f: fl.name }));
+    if (INFO.max_upload_mb && fl.size > INFO.max_upload_mb * 1024 * 1024) return refuse(t("too_big", { mb: INFO.max_upload_mb }));
     $("#upFile").classList.remove("err");
     file = fl; form.classList.remove("hidden");
     $("#upLabel").textContent = t("upload_change");
@@ -364,7 +377,9 @@ function bindUpload(onDone) {
         p => { $("#upProg i").style.width = (p * 100).toFixed(0) + "%"; $("#upMsg").textContent = t("uploading", { p: Math.round(p * 100) }); });
       onDone ? onDone() : route();
     } catch (e) {
-      $("#upMsg").textContent = e.message; $("#upMsg").className = "err"; $("#upGo").disabled = false;
+      // a bare "HTTP 413" comes from the front proxy's body limit, before the server could explain
+      const msg = e.status === 413 && /^HTTP /.test(e.message) ? t("too_big", { mb: INFO.max_upload_mb || 50 }) : e.message;
+      $("#upMsg").textContent = msg; $("#upMsg").className = "err"; $("#upGo").disabled = false;
     }
   };
 }
@@ -508,6 +523,7 @@ async function playerView(id, view, q) {
   document.title = `${S.an.title || "Cteno Jam"} · Cteno Jam`;
   player.setBeats(S.an.beats, S.an.downbeats);
   const stems = (S.song.meta && S.song.meta.stems) || STEMS;
+  const mine = api.canManage(S.song.meta || { id }, INFO);   // edit / undo / AI re-run only for the uploader's browser
 
   // ---- render shell
   const isStage = view === "stage";
@@ -540,7 +556,7 @@ async function playerView(id, view, q) {
           <div class="grp"><span>${esc(t("loop"))}</span><button id="loopA">${esc(t("loop_a"))}</button><button id="loopB">${esc(t("loop_b"))}</button><button id="loopX">✕</button></div>
           <button id="metro">${esc(t("metronome"))}</button><button id="countin">${esc(t("count_in"))}</button>
           <button id="stageBtn">${esc(t("stage"))}</button>
-          ${isStatic ? "" : `<button id="editBtn">${esc(t("edit"))}</button><button id="changesBtn">${esc(t("changes"))}</button>`}
+          ${mine ? `<button id="editBtn">${esc(t("edit"))}</button>` : ""}${isStatic ? "" : `<button id="changesBtn">${esc(t("changes"))}</button>`}
           <button id="printBtn">${esc(t("print"))}</button>
           <span class="muted" style="font-size:12px;margin-left:auto">${esc(t("tap_jump"))}</span>
         </div>
@@ -635,9 +651,9 @@ async function playerView(id, view, q) {
     let html = "";
     if (ai.status === "running" || ai.status === "queued") html = `<span>✨ ${esc(t(ai.status === "running" ? "ai_running" : "ai_queued"))}</span>`;
     else if (revs.length) html = `<span>✨ ${esc(t("ai_done", { n: applied }))}${ai.rejected && ai.rejected.length ? ` · ${esc(t("ai_rejected", { n: ai.rejected.length }))}` : ""}</span><div class="grow"></div><button id="aiOpen">${esc(t("changes"))}</button>`;
-    else if (ai.status === "failed") html = `<span class="err">${esc(t("ai_failed", { e: ai.error || "" }))}</span><div class="grow"></div>${INFO.ai.configured ? `<button id="aiRun">${esc(t("retry"))}</button>` : ""}`;
+    else if (ai.status === "failed") html = `<span class="err">${esc(t("ai_failed", { e: ai.error || "" }))}</span><div class="grow"></div>${INFO.ai.configured && mine ? `<button id="aiRun">${esc(t("retry"))}</button>` : ""}`;
     else if (!INFO.ai.configured && !isStatic) html = `<span class="muted">✨ ${esc(t("ai_off"))}</span>`;
-    else if (INFO.ai.configured) html = `<span>✨ ${esc(t("ai"))}</span><div class="grow"></div><button id="aiRun">${esc(t("ai_run"))}</button>`;
+    else if (INFO.ai.configured && mine) html = `<span>✨ ${esc(t("ai"))}</span><div class="grow"></div><button id="aiRun">${esc(t("ai_run"))}</button>`;
     el.innerHTML = html ? `<div class="aibar" style="margin:6px 14px">${html}</div>` : "";
     const o = $("#aiOpen"); if (o) o.onclick = () => changesPanel();
     const r = $("#aiRun"); if (r) r.onclick = async () => { try { await api.review(id); pollMeta(); toast(t("ai_queued")); } catch (e) { toast(e.message); } };
@@ -933,10 +949,10 @@ async function playerView(id, view, q) {
       p.innerHTML = `<h3>${esc(t("changes"))}</h3>
         ${aiRevs.length || ai.summary ? `<div class="aibar" style="display:block"><b>✨ ${esc(t("ai"))}</b>${ai.model ? ` <span class="muted">(${esc(ai.model)})</span>` : ""}<div style="margin-top:4px">${esc(ai.summary || "")}</div>
           <div class="muted" style="margin-top:6px;font-size:12px">${esc(t("ai_boundary"))}</div>
-          ${isStatic ? "" : `<div class="row" style="margin-top:8px"><button id="undoAll">${esc(t("ai_undo_all"))}</button><button id="redoAll">${esc(t("ai_redo_all"))}</button>${INFO.ai.configured ? `<button id="rerun">${esc(t("ai_rerun"))}</button>` : ""}</div>`}</div>` : ""}
+          ${!mine ? "" : `<div class="row" style="margin-top:8px"><button id="undoAll">${esc(t("ai_undo_all"))}</button><button id="redoAll">${esc(t("ai_redo_all"))}</button>${INFO.ai.configured ? `<button id="rerun">${esc(t("ai_rerun"))}</button>` : ""}</div>`}</div>` : ""}
         ${revs.length ? revs.map(r => `<div class="rev ${r.status}" data-id="${esc(r.id)}"><span class="who ${r.source}">${esc(t(r.source === "ai" ? "rev_ai" : "rev_user"))}</span>
           <div class="grow"><div class="what">${esc(describeRev(r))}${r.status === "conflict" ? ` <span class="err">(${esc(t("ai_conflict"))})</span>` : ""}</div><div class="why">${esc(r.reason || "")}</div></div>
-          ${isStatic ? "" : `<button data-act="${r.status === "applied" ? "reverted" : "applied"}">${esc(t(r.status === "applied" ? "undo" : "reapply"))}</button>`}</div>`).join("")
+          ${!mine ? "" : `<button data-act="${r.status === "applied" ? "reverted" : "applied"}">${esc(t(r.status === "applied" ? "undo" : "reapply"))}</button>`}</div>`).join("")
           : `<div class="muted">${esc(t("nothing"))}</div>`}
         ${ai.rejected && ai.rejected.length ? `<details style="margin-top:10px"><summary>${esc(t("ai_rejected", { n: ai.rejected.length }))}</summary>${ai.rejected.map(x => `<div class="why" style="margin:6px 0">• ${esc((x.patch && x.patch.op) || x.op || "")}: ${esc(x.error)}</div>`).join("")}</details>` : ""}`;
       p.querySelectorAll(".rev button").forEach(b => b.onclick = async () => {

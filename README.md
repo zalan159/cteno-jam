@@ -133,7 +133,27 @@ Optional: `JAM_JAMENDO_CLIENT_ID` (free id from devportal.jamendo.com) makes the
 Popularity: local songs count plays on the server (`POST /api/songs/{id}/play` when playback really starts or a jam starts; the same browser session within 30 s counts once; stored in `data/songs/.plays.json`). Jamendo results carry Jamendo's all-time listen counter and come in `order=popularity_total`. Mixed lists compare `plays × 1000` with Jamendo listens (one play here ≈ 1000 listens on Jamendo, whose audience is far larger) and sort by that, highest first (Jamendo's `popularity_total` picks which tracks come back, but its order is not by listens); the local song wins a tie; a Jamendo track already imported is shown once, as the library copy. See `web/js/popularity.js`.
 For a public server set `JAM_PUBLIC_URL`, and either `JAM_ADMIN_KEY` (upload/edit passphrase) or the
 open-upload guards `JAM_MAX_QUEUE`, `JAM_UPLOADS_PER_IP_HOUR` and `JAM_MAX_DISK_PERCENT` (what jam.cteno.cn uses;
-put a reverse proxy in front that sets `X-Forwarded-For` and blocks delete/edit from the internet).
+put a reverse proxy in front that sets `X-Forwarded-For`, e.g. with the rules in
+[`deploy/relay/jam.rules.caddy`](deploy/relay/jam.rules.caddy)).
+
+### Managing your own songs
+
+Whoever uploads (or imports) a song can rename, delete, retry and edit it — from the same browser. The upload
+response carries a random per-song management token once; the browser keeps it in `localStorage`, the server
+stores only its SHA-256 hash, and every rename / delete / retry / edit / undo / AI re-run sends it as
+`X-Jam-Owner`. Without the right token the server answers 403 with a plain reason. Other people's songs and the
+bundled demo songs show no management buttons. **In another browser, or after clearing the site's data, your own
+songs look like anyone else's** (the token is gone; there is no account to recover it). With `JAM_ADMIN_KEY`
+set, the passphrase also manages every song.
+
+Songs uploaded before tokens existed have none, so nobody can delete them over the web. The server operator
+deletes any song on the server itself:
+
+```bash
+python -m cteno_jam.admin list --failed            # or --no-owner: songs from before tokens existed
+python -m cteno_jam.admin delete <id> [<id> ...] --yes
+docker compose exec jam python -m cteno_jam.admin delete <id> --yes   # in the docker deployment
+```
 
 ## Architecture
 
@@ -180,6 +200,8 @@ test runners), `docs/evidence/` (test logs, screenshots, recordings).
 cd server && python -m pytest          # unit + API tests; AI review against a fake model (offline)
 node --test web/test/*.test.mjs        # chord theory / chart layout
 scripts/e2e.sh <server-ip>             # Playwright: WebKit + Chromium, iPhone and desktop
+scripts/e2e_relay.sh <server-ip>       # the same browsers THROUGH a Caddy with the production relay rules
+scripts/e2e_all.sh                     # ships the tree to the test machines and runs both suites
 zsh e2e/ios/run_sim_gui.sh <server-ip> demo-twinkle docs/evidence/ios   # real iOS Simulator Safari, with sound
 ```
 
@@ -188,6 +210,13 @@ level measured), stems, transpose, speed, loop, metronome, editing + undo, print
 following, big screen, remote control, rename and delete. The iOS run drives real Mobile Safari
 in the Simulator through Web Inspector, records the Mac's system audio and checks each step is
 loud or silent as expected. Results: [`docs/evidence/`](docs/evidence/README.md).
+
+The relay suite (`e2e/tests/relay.spec.js`) runs through a local Caddy that imports
+[`deploy/relay/jam.rules.caddy`](deploy/relay/jam.rules.caddy) — the same file the public front door uses — so
+what visitors can and cannot do on the public site is tested, not assumed: managing your own song works, other
+people's songs show no buttons, and direct API calls without the token are refused. Every change that touches the
+public site must pass it. What the app must do, scenario by scenario, and which test covers each one:
+[`docs/acceptance-scenarios.md`](docs/acceptance-scenarios.md).
 
 ## FAQ
 
@@ -222,7 +251,7 @@ Docker image) and the Whisper model (~480 MB for `small`, only if no lyrics are 
 ### 能做什么
 
 1. **打开就能挑歌**：首页第一屏就是歌单，分「热门」（本站曲库 + Jamendo 免费曲库按累计热度前 20）、「中文」（Jamendo 中文歌）、「我的曲库」三栏，每首带热度、许可证、试听和「用这首」；不用登录、不用搜索，Jamendo 连不上或没配置时照样显示本站曲库。搜索和「上传」是栏目旁的小按钮，上传在弹层里完成，传完自动回到「我的曲库」。
-   也可以**上传**：mp3 / m4a / wav / flac / amr，手机上可以从「文件」或微信聊天记录里选；也可以在网页里**直接录一段**，或者直接在曲库搜索框里搜：配置了 `JAM_JAMENDO_CLIENT_ID` 时，同一个搜索框也会搜 **Jamendo 免费曲库**，结果和本地曲库排在一起（只列作者允许下载的曲目，标出来源和许可证），点一下就能用；没配就只搜本地。每首歌显示热度（▶ 1.2万），列表按热度排序：本地歌按本站播放次数（真正开始播放或开合奏时 +1，同一会话 30 秒内只算一次），Jamendo 用它的累计收听数；混排时本地 1 次播放折算 1000 次 Jamendo 收听，整张表按这个分数从高到低排（Jamendo 的 popularity_total 决定返回哪些歌，但它的顺序不是按收听数），相同时本地在前。进入后台队列，能看到每一步和进度；失败会写明原因，可以重试。曲库支持搜索、改名、删除。
+   也可以**上传**：mp3 / m4a / wav / flac / amr，手机上可以从「文件」或微信聊天记录里选；也可以在网页里**直接录一段**，或者直接在曲库搜索框里搜：配置了 `JAM_JAMENDO_CLIENT_ID` 时，同一个搜索框也会搜 **Jamendo 免费曲库**，结果和本地曲库排在一起（只列作者允许下载的曲目，标出来源和许可证），点一下就能用；没配就只搜本地。每首歌显示热度（▶ 1.2万），列表按热度排序：本地歌按本站播放次数（真正开始播放或开合奏时 +1，同一会话 30 秒内只算一次），Jamendo 用它的累计收听数；混排时本地 1 次播放折算 1000 次 Jamendo 收听，整张表按这个分数从高到低排（Jamendo 的 popularity_total 决定返回哪些歌，但它的顺序不是按收听数），相同时本地在前。进入后台队列，能看到每一步和进度；失败会写明原因，可以重试。曲库支持搜索；自己上传的歌可以改名、删除（见下面「管理自己的歌」）。
 2. **自动处理**
    - 用 Demucs `htdemucs_6s` 拆成 6 轨：人声、吉他、钢琴、贝斯、鼓、其他
    - 调性、BPM、节拍和强拍；按拍识别和弦（色度模板 + 贝斯根音 + Viterbi 平滑）
@@ -257,7 +286,23 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 
 有显卡时自动用 GPU。实测（65 秒的演示曲，全新容器）：分轨 CPU 9.4 秒、RTX 4000 Ada 3.0 秒；4 分钟的歌大约 CPU 35 秒、GPU 10 秒。第一首歌会额外下载 Whisper 模型（约 2 分钟），之后存在 `jam-models` 卷里复用。
 
-只想要播放器：`python scripts/build_demo.py static dist/static`，把 `dist/static/` 放到任何静态服务器上即可，带两首演示曲。要在 1G 内存的小 VPS 上放公开演示（静态播放器 + 同步房间，不装 PyTorch，约 65MB 内存）：`scripts/deploy_relay.sh`。处理服务放在家里电脑或带 GPU 的机器上，部署方案见 [docs/deploy.md](docs/deploy.md)。所有配置项见 `.env.example`；对外开放时请设置 `JAM_ADMIN_KEY`（上传/修改口令）。
+只想要播放器：`python scripts/build_demo.py static dist/static`，把 `dist/static/` 放到任何静态服务器上即可，带两首演示曲。要在 1G 内存的小 VPS 上放公开演示（静态播放器 + 同步房间，不装 PyTorch，约 65MB 内存）：`scripts/deploy_relay.sh`。处理服务放在家里电脑或带 GPU 的机器上，部署方案见 [docs/deploy.md](docs/deploy.md)。所有配置项见 `.env.example`；对外开放时请设置 `JAM_ADMIN_KEY`（上传/修改口令），或者像 jam.cteno.cn 一样开放上传、靠限流护栏防刷，前面加一层用 [`deploy/relay/jam.rules.caddy`](deploy/relay/jam.rules.caddy) 规则的反向代理。
+
+### 管理自己的歌
+
+谁上传（或导入）的歌，谁就能在**同一个浏览器**里改名、删除、重试和编辑。上传成功时服务器发一个只属于这首歌的随机管理令牌，只发这一次；浏览器把它存在 `localStorage`，服务器只存它的哈希。改名、删除、重试、编辑、撤销、重新 AI 校对都会在 `X-Jam-Owner` 头里带上它，令牌不对服务器就返回 403 并说明原因。别人的歌和内置演示歌不显示这些按钮。**换一个浏览器、或者清了网站数据，自己的歌也会变成「别人的歌」**，看不到管理按钮（令牌没了，也没有账号可以找回）。设置了 `JAM_ADMIN_KEY` 时，口令可以管理所有歌。
+
+令牌机制上线前传的旧歌没有令牌，网页上谁都删不了。服务器管理员在服务器上直接删：
+
+```bash
+python -m cteno_jam.admin list --failed            # 或 --no-owner：列出没有令牌的旧歌
+python -m cteno_jam.admin delete <id> [<id> ...] --yes
+docker compose exec jam python -m cteno_jam.admin delete <id> --yes   # docker 部署时
+```
+
+### 测试
+
+`cd server && python -m pytest` 跑单元和接口测试；`scripts/e2e.sh <服务器 IP>` 是手机尺寸套件（WebKit + Chromium，iPhone 尺寸和桌面）；`scripts/e2e_relay.sh <服务器 IP>` 是**中转层套件**：同样的浏览器，但经过一个用生产中转规则（[`deploy/relay/jam.rules.caddy`](deploy/relay/jam.rules.caddy)，和公网入口是同一个文件）的本地 Caddy，测公网上能做什么、不能做什么：自己的歌能管理，别人的歌看不到按钮，不带令牌直接调接口被拒。凡是动到公网的改动都必须跑这套。`scripts/e2e_all.sh` 把代码同步到测试机后两套一起跑。每条验收场景和对应的测试见 [`docs/acceptance-scenarios.md`](docs/acceptance-scenarios.md)。
 
 ### 常见问题
 

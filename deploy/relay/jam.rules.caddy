@@ -1,0 +1,33 @@
+# Cteno Jam — public front door rules (the relay in front of jam.cteno.cn).
+# One file, used byte-for-byte in production and by the relay e2e suite (scripts/e2e_relay.sh):
+#   jam.cteno.cn, jam-office.cteno.cn {
+#   	import /etc/caddy/cteno-jam.rules.caddy 127.0.0.1:15765
+#   }
+# {args[0]} is the upstream Jam server.
+#
+# Public writes:
+#   POST   /api/songs                      upload a song (server: queue / per-IP / disk / size / duration guards)
+#   POST   /api/jamendo/import             import a Jamendo track (same guards)
+#   POST   /api/songs/{id}/play            count a play
+#   with an X-Jam-Owner header (the song's management token; the Jam server checks it, the relay only
+#   lets the request through):
+#   PATCH  /api/songs/{id}                 rename
+#   DELETE /api/songs/{id}                 delete
+#   POST   /api/songs/{id}/retry|edits|revisions|review
+# Every other PATCH / PUT / DELETE / POST is answered here with 403 and a JSON reason.
+encode gzip
+request_body {
+	max_size 52MB
+}
+@jam_blocked_writes {
+	expression `{http.request.method} in ['PATCH', 'PUT', 'DELETE', 'POST'] && !({http.request.method} == 'POST' && ({http.request.uri.path} == '/api/songs' || {http.request.uri.path} == '/api/jamendo/import' || {http.request.uri.path}.matches('^/api/songs/[a-z0-9-]+/play$'))) && !({http.request.header.X-Jam-Owner} != '' && (({http.request.method} in ['PATCH', 'DELETE'] && {http.request.uri.path}.matches('^/api/songs/[a-z0-9-]+$')) || ({http.request.method} == 'POST' && {http.request.uri.path}.matches('^/api/songs/[a-z0-9-]+/(retry|edits|revisions|review)$'))))`
+}
+handle @jam_blocked_writes {
+	header Content-Type "application/json; charset=utf-8"
+	respond `{"detail":"公网上只能管理自己上传的歌：删除、改名、重试、编辑需要这首歌的管理令牌（只保存在上传它的浏览器里）。On the public site you can only manage songs uploaded from this browser."}` 403
+}
+handle {
+	reverse_proxy {args[0]} {
+		flush_interval -1
+	}
+}

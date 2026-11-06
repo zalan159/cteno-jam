@@ -38,6 +38,11 @@ TRACKS = [
        "file": "twinkle.mp3", "duration": 65, "audiodownload_allowed": True, "lang": "zh" if i < 6 else "", "tags": "chinese",
        "license_ccurl": "http://creativecommons.org/licenses/by-sa/3.0/", "listens": 50000 - i * 3000, "popularity": 0.5 - i * 0.01}
       for i in range(8)],
+    # four more only tagged "chinese", so 中文 reaches the >=10 of scenario A5 (6 lang=zh + 6 topped up = 12)
+    *[{"id": "9202%02d" % i, "name": "中文歌 %s" % "ABCD"[i], "artist_name": "华语乐队", "album_name": "华语",
+       "file": "twinkle.mp3", "duration": 65, "audiodownload_allowed": True, "lang": "", "tags": "chinese",
+       "license_ccurl": "http://creativecommons.org/licenses/by/4.0/", "listens": 20000 - i * 1000, "popularity": 0.3 - i * 0.01}
+      for i in range(4)],
 ]
 
 

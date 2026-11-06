@@ -45,6 +45,8 @@ class Config:
     uploads_per_ip_hour: int = field(default_factory=lambda: _int("JAM_UPLOADS_PER_IP_HOUR", 0))
     rate_limit_private: bool = field(default_factory=lambda: _bool("JAM_RATE_LIMIT_PRIVATE", False))  # LAN clients exempt by default
     max_disk_percent: int = field(default_factory=lambda: _int("JAM_MAX_DISK_PERCENT", 0))   # refuse uploads above this
+    # Probe every upload with ffprobe before queueing it (refuse broken / too short / too long files at once)
+    check_uploads: bool = field(default_factory=lambda: _bool("JAM_CHECK_UPLOADS", True))
     public_url: str = field(default_factory=lambda: os.environ.get("JAM_PUBLIC_URL", ""))
     # Jamendo free-music search/import (optional): the client id stays on the server; empty hides the feature
     jamendo_client_id: str = field(default_factory=lambda: os.environ.get("JAM_JAMENDO_CLIENT_ID", "").strip())

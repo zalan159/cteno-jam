@@ -71,10 +71,11 @@ run processing there**.
 Since 2026-11-02 jam.cteno.cn is a full instance (upload + processing) on one RTX 4090 at our office,
 reached through a small cloud relay (Caddy for TLS, frp tunnel to the GPU box). No passphrase; abuse is
 bounded by `JAM_WORKERS=1`, `JAM_MAX_UPLOAD_MB=50`, `JAM_MAX_QUEUE=20`, `JAM_UPLOADS_PER_IP_HOUR=5`
-and `JAM_MAX_DISK_PERCENT=80`, and the relay answers 403 to rename/delete/edit/retry/review so visitors
-cannot touch other people's songs. One 4-minute song takes about 42 s on the GPU (~2 GB VRAM peak).
+and `JAM_MAX_DISK_PERCENT=80`. Rename/delete/edit/retry/review need the song's management token (see
+"Managing songs" below); the relay answers 403 to those requests when they carry no token, and the Jam server
+checks the token itself. One 4-minute song takes about 42 s on the GPU (~2 GB VRAM peak).
 
-2026-11-02 起 jam.cteno.cn 是完整实例（可上传、可处理），跑在办公室一张 RTX 4090 上，经云上中转（Caddy 签证书，frp 隧道到显卡机）对外。不设口令，靠上面这几项限制防刷；中转层对重命名/删除/编辑/重试/AI 校对一律返回 403，访客动不了别人的歌。一首 4 分钟的歌在 GPU 上约 42 秒处理完，显存峰值约 2GB。
+2026-11-02 起 jam.cteno.cn 是完整实例（可上传、可处理），跑在办公室一张 RTX 4090 上，经云上中转（Caddy 签证书，frp 隧道到显卡机）对外。不设口令，靠上面这几项限制防刷；改名、删除、编辑、重试、AI 校对需要这首歌的管理令牌（见下面「管理歌曲」），中转层对不带令牌的这几类请求直接返回 403，带了令牌的放给 jam 服务，由 jam 服务校验。一首 4 分钟的歌在 GPU 上约 42 秒处理完，显存峰值约 2GB。
 
 **Jamendo + popularity (2026-11-07).** The jam container reads `JAM_JAMENDO_CLIENT_ID` from
 `/models/cteno-jam/jamendo.env` (mode 600, `env_file` in docker-compose.yml; the value is in the vault as
@@ -87,3 +88,64 @@ Play counts live in `data/songs/.plays.json`. The relay additionally lets two PO
 `jam/JAMENDO_DEV_PASSWORD`）。播放次数存在 `data/songs/.plays.json`。中转层对公网额外放行两个 POST：
 `/api/jamendo/import`（和上传一样受队列、限频、磁盘限制）和 `/api/songs/{id}/play`。
 
+
+## Managing songs · 管理歌曲 (2026-11-07)
+
+**Owner tokens.** An upload or a Jamendo import returns `owner_token` once (32 random bytes, url-safe). The browser
+keeps it in `localStorage["jam.owned"]`; `meta.json` stores only `owner_hash` (SHA-256). `PATCH`/`DELETE
+/api/songs/{id}` and `POST /api/songs/{id}/{retry,edits,revisions,review}` need it in `X-Jam-Owner` (or
+`X-Jam-Key` = `JAM_ADMIN_KEY` when a passphrase is set); otherwise 403 with a Chinese + English reason. Demo songs
+cannot be deleted. Songs from before 2026-11-07 have no token: nobody can manage them over HTTP — expected; use the
+admin command below.
+
+**Relay rules.** The rules live in the repository, [`deploy/relay/jam.rules.caddy`](../deploy/relay/jam.rules.caddy),
+and the relay imports that file unchanged, so the relay e2e suite tests exactly what production runs:
+
+```caddy
+jam.cteno.cn, jam-office.cteno.cn {
+	import /etc/caddy/cteno-jam.rules.caddy 127.0.0.1:15765
+}
+```
+
+Public: uploads, Jamendo import, play counts, and the six management requests **when they carry an
+`X-Jam-Owner` header** (the relay does not judge the token; the Jam server does). Everything else that writes
+(other POST paths, PUT, PATCH/DELETE elsewhere, management requests without the header) gets a JSON 403 from the
+relay. Updating the relay:
+
+```bash
+ssh root@<relay> 'cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date +%Y%m%d%H%M%S); \
+  cp /etc/caddy/cteno-jam.rules.caddy /etc/caddy/cteno-jam.rules.caddy.bak-$(date +%Y%m%d%H%M%S) 2>/dev/null; true'
+scp deploy/relay/jam.rules.caddy root@<relay>:/etc/caddy/cteno-jam.rules.caddy
+ssh root@<relay> 'caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile && systemctl reload caddy && \
+  sed -n "/jam.cteno.cn/,/^}/p" /etc/caddy/Caddyfile && sha256sum /etc/caddy/cteno-jam.rules.caddy'
+curl -s -o /dev/null -w "%{http_code}\n" -X DELETE https://jam.cteno.cn/api/songs/abcdef1234          # 403 (relay)
+curl -s -X DELETE -H "X-Jam-Owner: x" https://jam.cteno.cn/api/songs/abcdef1234                       # 404/403 from the server
+```
+
+Deploy order: the Jam server first (it then enforces tokens on its own), the relay second. Rolling the relay back
+is restoring `Caddyfile.bak-<time>` and reloading.
+
+**Admin command (on cteno-infer).** Deletes any song, including old ones without a token and failed records:
+
+```bash
+ssh cteno-infer
+cd /models/cteno-jam
+docker compose exec jam python -m cteno_jam.admin list --failed     # id, status, token yes/no, created, title
+docker compose exec jam python -m cteno_jam.admin list --no-owner   # songs from before tokens existed
+docker compose exec jam python -m cteno_jam.admin show <id>
+docker compose exec jam python -m cteno_jam.admin delete <id> [<id> ...]          # asks y/N per song
+docker compose exec jam python -m cteno_jam.admin delete <id> --yes               # no questions
+```
+
+Demo songs need `--force-demo`. The command works on `/data` inside the container (= `/models/cteno-jam/data`).
+
+**令牌。** 上传或导入 Jamendo 歌时，服务器在响应里返回一次 `owner_token`；浏览器存在 `localStorage["jam.owned"]`，
+`meta.json` 里只存哈希。改名、删除、重试、编辑、改动记录、AI 校对都要在 `X-Jam-Owner` 头里带上它，否则 403（中英文原因）。
+2026-11-07 之前的旧歌没有令牌，网页上谁都删不了，这是预期的；用下面的管理员命令删。
+
+**中转规则**放在仓库的 `deploy/relay/jam.rules.caddy`，relay 原样 import 这个文件，relay e2e 套件测的就是生产在跑的规则。
+带 `X-Jam-Owner` 头的六类管理请求放行给 jam 服务校验，不带头的、以及其它所有写请求由中转层返回 JSON 403。改之前先把
+`Caddyfile` 和 `cteno-jam.rules.caddy` 备份成 `.bak-时间戳`，`caddy validate` 通过再 reload，reload 后回读核对。先部署 jam 服务，再改中转层。
+
+**管理员命令（在 cteno-infer 上）**：`cd /models/cteno-jam && docker compose exec jam python -m cteno_jam.admin delete <id> --yes`；
+`list --failed` / `list --no-owner` 先列出来。演示歌要加 `--force-demo`。

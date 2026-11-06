@@ -113,6 +113,32 @@ test("upload → process → play → share → big screen → remote", async ({
   await expect(page.locator(".ch.sung").first()).toBeVisible();
   await expect(page.locator("#cur")).not.toHaveText("–");
   await shot(page, "05-playing");
+  // E1: each chord sits right above the word it belongs to, and the sung line is kept in view while playing
+  const geo = await page.evaluate(() => {
+    const units = [...document.querySelectorAll(".ch")].filter(u => u.querySelector("b[data-seg]") && u.querySelector("i").textContent.trim());
+    const bad = units.filter(u => { const b = u.querySelector("b").getBoundingClientRect(), i = u.querySelector("i").getBoundingClientRect();
+      return !(b.bottom <= i.top + 2 && b.left >= i.left - 2 && b.left <= i.right); }).length;
+    return { units: units.length, bad };
+  });
+  const scrollAt = async () => page.evaluate(() => { const sh = document.querySelector("#sheet"), on = document.querySelector(".line.on");
+    if (!on) return { on: null, top: sh.scrollTop };
+    const r = on.getBoundingClientRect(), v = sh.getBoundingClientRect();
+    return { on: [...document.querySelectorAll(".line")].indexOf(on), top: Math.round(sh.scrollTop), lineTop: Math.round(r.top), lineBottom: Math.round(r.bottom),
+      viewTop: Math.round(v.top), viewBottom: Math.round(v.bottom),
+      // the sheet can be only ~70 px tall on a 390x664 phone with the controls open: "in view" = the line's top is inside it
+      inView: r.top >= v.top - 1 && r.top < v.bottom }; });
+  const sc1 = await scrollAt();
+  await page.evaluate(() => __jam.player.seek(Math.max(0, __jam.S.an.lyrics.lines[9].start)));
+  // the sheet scrolls smoothly; give it time to settle
+  await expect.poll(async () => { const x = await scrollAt(); return x.on >= 8 && x.inView; }, { timeout: 6000 }).toBe(true).catch(() => {});
+  const sc2 = await scrollAt();
+  note("chords-over-words", { proj, ...geo, sc1, sc2 });
+  expect(geo.units).toBeGreaterThan(10);
+  expect(geo.bad).toBe(0);
+  expect(sc2.on).toBeGreaterThanOrEqual(8);
+  expect(sc2.inView).toBe(true);
+  expect(sc2.top).toBeGreaterThan(sc1.top);
+  await page.evaluate(() => __jam.player.seek(3));
 
   // ---------------------------------------------------------- 5. stems: karaoke, solo, volume
   await tap(page, "#karaoke");
@@ -343,28 +369,48 @@ test("upload → process → play → share → big screen → remote", async ({
   expect(p2err).toEqual([]);
 });
 
-test("failed upload shows the reason and can be retried", async ({ page, request }) => {
-  await page.goto("/");
+// C3: a file that is not audio is refused while uploading (plain Chinese reason, no row, nothing queued).
+// D1 retry: a song that fails while processing (server started with JAM_TEST_FAIL_TITLE=__e2e_fail__) shows the
+// reason, and its uploader's browser can retry it and delete it.
+test("broken file refused at upload; a processing failure shows the reason and can be retried", async ({ page, request }) => {
+  await page.goto("/?lang=zh");
   await openUpload(page);
   const bad = path.join(test.info().outputDir, "not-audio.mp3");
   fs.mkdirSync(path.dirname(bad), { recursive: true });
   fs.writeFileSync(bad, "this is not audio");
   await page.setInputFiles("#file", bad);
-  await page.fill("#upTitle", "broken file " + Date.now() % 10000);
+  const brokenTitle = "broken file " + Date.now() % 10000;
+  await page.fill("#upTitle", brokenTitle);
   await page.click("#upGo");
-  const row = page.locator(".song", { hasText: "broken file" }).first();
+  await expect(page.locator("#upMsg")).toContainText("读不出这个文件里的音频");
+  await shot(page, "20-broken-refused");
+  expect((await (await request.get("/api/songs?q=" + encodeURIComponent(brokenTitle))).json()).songs).toEqual([]);
+  note("broken-refused", { proj: test.info().project.name, msg: await page.textContent("#upMsg") });
+
+  // a real song that fails during processing (test marker in the title)
+  await page.setInputFiles("#file", AUDIO);
+  const title = "fails __e2e_fail__ " + Date.now() % 10000;
+  await page.fill("#upTitle", title);
+  await page.click("#upGo");
+  await page.goto("/?lang=zh#/?tab=mine");
+  const row = page.locator(".song", { hasText: title }).first();
   await expect(row.locator(".m.err").nth(1)).toBeVisible({ timeout: 60_000 });
   const msg = await row.locator(".m.err").nth(1).textContent();
   await expect(row.locator("[data-act=retry]")).toBeVisible();
   await shot(page, "20-failed");
   note("failed-upload", { proj: test.info().project.name, msg });
-  expect(msg).toMatch(/readable|audio/i);
+  expect(msg).toContain("JAM_TEST_FAIL_TITLE");
   expect(msg).not.toMatch(/\/home\/|\/Users\/|songs\//);
+  const id = (await (await request.get("/api/songs?q=" + encodeURIComponent(title))).json()).songs[0].id;
+  const before = (await (await request.get(`/api/songs/${id}`)).json()).attempts;
   await row.locator("[data-act=retry]").click();
+  await expect.poll(async () => (await (await request.get(`/api/songs/${id}`)).json()).attempts, { timeout: 60_000 }).toBe(before + 1);
   await expect(row.locator(".m.err").nth(1)).toBeVisible({ timeout: 60_000 });
   page.once("dialog", d => d.accept());
   await row.locator("[data-act=menu]").click();
   await page.click("#rnDel");
+  await expect(page.locator(".song", { hasText: title })).toHaveCount(0);
+  expect((await request.get(`/api/songs/${id}`)).status()).toBe(404);
 });
 
 test("encrypted music-app files are refused with a plain message", async ({ page }) => {

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import sys
 import time
@@ -77,6 +78,9 @@ def process(sid: str, cfg: config.Config) -> None:
     # ---- decode
     pr.stage("decode")
     lang = meta.get("lang") or ""
+    marker = os.environ.get("JAM_TEST_FAIL_TITLE", "")   # e2e only: a title containing this marker fails here
+    if marker and marker in (st.meta(sid).get("title") or ""):
+        raise JobError("测试：标题里有 JAM_TEST_FAIL_TITLE 标记，按要求处理失败 (test failure on request)")
     try:
         dur = audio.probe_duration(src)
     except audio.AudioError as e:

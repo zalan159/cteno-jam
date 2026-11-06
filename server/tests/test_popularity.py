@@ -5,8 +5,13 @@ from cteno_jam import app as appmod
 from test_api import client, upload, wait_status  # noqa: F401  (client is a fixture)
 
 
+TOKENS = {}
+
+
 def ready_song(c, title):
-    sid = upload(c, title=title).json()["id"]
+    r = upload(c, title=title)
+    sid = r.json()["id"]
+    TOKENS[sid] = r.json()["owner_token"]
     wait_status(c, sid, ("ready",))
     return sid
 
@@ -73,5 +78,5 @@ def test_library_is_sorted_by_plays_then_newest(client):
 def test_delete_forgets_the_count(client):
     sid = ready_song(client, "Gone")
     client.post("/api/songs/%s/play" % sid, json={"session": "sess-eeeeeeee"})
-    assert client.delete("/api/songs/%s" % sid).status_code == 204
+    assert client.delete("/api/songs/%s" % sid, headers={"X-Jam-Owner": TOKENS[sid]}).status_code == 204
     assert sid not in client.app.state.store.plays()

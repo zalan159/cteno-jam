@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from cteno_jam import app as appmod, config, store
 
 from test_patches import song
+from conftest import owner
 
 HERE = Path(__file__).resolve().parent
 
@@ -52,62 +53,62 @@ def test_info_reports_ai_not_configured(client):
 def test_upload_process_list_search_rename_delete(client):
     r = upload(client, title="Twinkle", artist="Trad.")
     assert r.status_code == 201, r.text
-    sid = r.json()["id"]
+    sid, own = r.json()["id"], owner(r)
     m = wait_status(client, sid, ("ready", "failed"))
     assert m["status"] == "ready" and m["progress"] == 1.0
     s = client.get("/api/songs/%s/song.json" % sid).json()
     assert s["analysis"]["key"] == "E major" and s["meta"]["title"] == "Twinkle"
     assert client.get("/api/songs?q=twink").json()["songs"][0]["id"] == sid
     assert client.get("/api/songs?q=zzz").json()["songs"] == []
-    assert client.patch("/api/songs/%s" % sid, json={"title": "Little Star"}).json()["title"] == "Little Star"
+    assert client.patch("/api/songs/%s" % sid, json={"title": "Little Star"}, headers=own).json()["title"] == "Little Star"
     assert client.get("/api/songs/%s/song.json" % sid).json()["analysis"]["title"] == "Little Star"
     assert client.get("/api/songs/%s/stems/vocals.mp3" % sid).status_code == 200
     assert client.get("/api/songs/%s/stems/../../x.mp3" % sid).status_code == 404
-    assert client.delete("/api/songs/%s" % sid).status_code == 204
+    assert client.delete("/api/songs/%s" % sid, headers=own).status_code == 204
     assert client.get("/api/songs/%s" % sid).status_code == 404
 
 
 def test_bad_type_and_failure_and_retry(client):
     assert upload(client, name="x.exe").status_code == 415
     r = upload(client, name="broken.wav", data=b"FAIL")  # fake worker fails on this content
-    sid = r.json()["id"]
+    sid, own = r.json()["id"], owner(r)
     m = wait_status(client, sid, ("ready", "failed"))
     assert m["status"] == "failed" and "not a readable audio file" in m["error"]
     # replace the content, then retry
     orig = Path(client.app.state.cfg.songs_dir) / sid / "original.wav"
     orig.write_bytes(b"OK now")
-    assert client.post("/api/songs/%s/retry" % sid).status_code == 200
+    assert client.post("/api/songs/%s/retry" % sid, headers=own).status_code == 200
     m = wait_status(client, sid, ("ready",))
     assert m["attempts"] == 2
 
 
 def test_edits_and_revisions_api(client):
-    sid = upload(client).json()["id"]
+    up = upload(client); sid, own = up.json()["id"], owner(up)
     wait_status(client, sid, ("ready",))
-    r = client.post("/api/songs/%s/edits" % sid, json={"patches": [{"op": "replace_chord", "id": "c002", "chord": "C#m"}]})
+    r = client.post("/api/songs/%s/edits" % sid, json={"patches": [{"op": "replace_chord", "id": "c002", "chord": "C#m"}]}, headers=own)
     assert r.status_code == 200, r.text
     s = r.json()["song"]
     assert s["analysis"]["chords"][1]["chord"] == "C#m" and s["revisions"][0]["source"] == "user"
-    bad = client.post("/api/songs/%s/edits" % sid, json={"patches": [{"op": "replace_chord", "id": "zz", "chord": "C"}]})
+    bad = client.post("/api/songs/%s/edits" % sid, json={"patches": [{"op": "replace_chord", "id": "zz", "chord": "C"}]}, headers=own)
     assert bad.status_code == 422 and "no chord segment" in bad.json()["error"]
-    r = client.post("/api/songs/%s/revisions" % sid, json={"ids": "all", "status": "reverted"})
+    r = client.post("/api/songs/%s/revisions" % sid, json={"ids": "all", "status": "reverted"}, headers=own)
     assert r.json()["song"]["analysis"]["chords"][1]["chord"] == "Abm"
 
 
 def test_upload_records_ui_language_and_review_can_override(client):
-    sid = upload(client, title="阳光宅男", lang="zh-CN").json()["id"]
+    up = upload(client, title="阳光宅男", lang="zh-CN"); sid, own = up.json()["id"], owner(up)
     assert client.get("/api/songs/%s" % sid).json()["lang"] == "zh"
     wait_status(client, sid, ("ready",))
-    client.post("/api/songs/%s/review?lang=en" % sid)          # 409 (no key) but the language is recorded first
+    client.post("/api/songs/%s/review?lang=en" % sid, headers=own)          # 409 (no key) but the language is recorded first
     assert client.get("/api/songs/%s" % sid).json()["lang"] == "en"
     other = upload(client, title="x", lang="klingon").json()["id"]
     assert "lang" not in client.get("/api/songs/%s" % other).json()
 
 
 def test_review_requires_key(client):
-    sid = upload(client).json()["id"]
+    up = upload(client); sid = up.json()["id"]
     wait_status(client, sid, ("ready",))
-    r = client.post("/api/songs/%s/review" % sid)
+    r = client.post("/api/songs/%s/review" % sid, headers=owner(up))
     assert r.status_code == 409 and "not configured" in r.json()["detail"]
     assert client.get("/api/songs/%s" % sid).json()["ai"]["status"] == "not_configured"
 
@@ -214,7 +215,7 @@ def test_per_ip_hourly_limit_uses_forwarded_for(tmp_path):
         for i in range(2):
             assert c.post("/api/songs", files={"file": ("x.mp3", io.BytesIO(b"ID3x"), "audio/mpeg")}, headers=a).status_code == 201
         r = c.post("/api/songs", files={"file": ("x.mp3", io.BytesIO(b"ID3x"), "audio/mpeg")}, headers=a)
-        assert r.status_code == 429
+        assert r.status_code == 429 and "上传太频繁" in r.json()["detail"]
         # another client is unaffected; a private (LAN) client is exempt by default
         assert c.post("/api/songs", files={"file": ("x.mp3", io.BytesIO(b"ID3x"), "audio/mpeg")}, headers=b).status_code == 201
         lan = {"X-Forwarded-For": "192.168.8.20"}
@@ -224,7 +225,8 @@ def test_per_ip_hourly_limit_uses_forwarded_for(tmp_path):
 
 def test_disk_guard(tmp_path):
     with _guarded_client(tmp_path, max_disk_percent=1) as c:  # any real disk is >1% full
-        assert upload(c).status_code == 507
+        r = upload(c)
+        assert r.status_code == 507 and "磁盘空间不足" in r.json()["detail"]
 
 
 def test_events_stream_carries_queue_position(tmp_path):

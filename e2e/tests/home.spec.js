@@ -5,6 +5,7 @@
 import { test, expect } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
+import { deleteFromPage, deleteWithToken } from "./owner.js";
 
 const EVID = process.env.JAM_EVIDENCE || "../docs/evidence/e2e";
 const DEMO = process.env.JAM_DEMO_DIR || "../demo/source";
@@ -20,19 +21,19 @@ test.afterAll(async () => {
 });
 
 // One ready library song (the suite runs on an empty library), so 热门 can show library + Jamendo together.
-let libSong = null;
+let libSong = null, libToken = null;
 test.beforeAll(async ({ request }) => {
   const have = (await (await request.get("/api/songs")).json()).songs.find(s => s.status === "ready");
   if (have) return;
   const up = await request.post("/api/songs", { multipart: { file: { name: "twinkle.mp3", mimeType: "audio/mpeg", buffer: fs.readFileSync(AUDIO) }, title: "Home list library song" } });
-  libSong = (await up.json()).id;
+  ({ id: libSong, owner_token: libToken } = await up.json());
   for (const t0 = Date.now(); Date.now() - t0 < 10 * 60_000;) {
     const m = await (await request.get(`/api/songs/${libSong}`)).json();
     if (m.status === "ready" || m.status === "failed") break;
     await new Promise(r => setTimeout(r, 1000));
   }
 });
-test.afterAll(async ({ request }) => { if (libSong) await request.delete(`/api/songs/${libSong}`); });
+test.afterAll(async ({ request }) => { if (libSong) await deleteWithToken(request, libSong, libToken); });
 
 // What a person sees on the first screen: song rows fully inside the viewport, decorations, upload card.
 async function firstScreen(page) {
@@ -74,6 +75,11 @@ test("home first screen: tabs + ≥5 playable songs, no stars, no upload card; �
   expect(hot.visibleSongs).toBeGreaterThanOrEqual(5);
   expect(hot.withPlaysAndLicense).toBe(hot.visibleSongs);
   expect(hot.clickable).toBe(hot.visibleSongs);
+  // A3: every Jamendo row has a preview button and "use this"
+  const jmRows = page.locator('.song[data-kind="jamendo"]');
+  expect(await jmRows.count()).toBeGreaterThan(0);
+  expect(await page.locator('.song[data-kind="jamendo"] .jmPlay').count()).toBe(await jmRows.count());
+  expect(await page.locator('.song[data-kind="jamendo"] .jmUse').count()).toBe(await jmRows.count());
   expect(hot.stars).toBe(0); expect(hot.starNodes).toBe(0);
   expect(hot.uploadCard).toBe(false);
   expect(hot.tabsTop).toBeLessThan(80);                      // right under the top bar
@@ -98,7 +104,10 @@ test("home first screen: tabs + ≥5 playable songs, no stars, no upload card; �
   expect(zh.stars).toBe(0); expect(zh.uploadCard).toBe(false);
   expect(zh.firstSongTop).toBe(hot.firstSongTop);            // switching tabs does not push the songs down
   const zhList = await page.evaluate(() => window.__jamList);
-  expect(zhList.filter(r => r.title.startsWith("中文歌")).length).toBe(8);   // 6 lang=zh + 2 topped up from tags=chinese
+  const zhCount = zhList.filter(r => r.title.startsWith("中文歌")).length;
+  note("home-zh-count", { proj: info.project.name, zhCount });
+  expect(zhCount).toBe(12);                                    // 6 lang=zh + 6 topped up from tags=chinese
+  expect(zhCount).toBeGreaterThanOrEqual(10);                  // scenario A5
   await shot(page, `51-home-zh-${lang}`);
 
   // tap a song in a list: it is imported (same path as search) and appears in the library
@@ -122,12 +131,13 @@ test("home first screen: tabs + ≥5 playable songs, no stars, no upload card; �
   await expect(page.locator(".upsheet")).toHaveCount(0);                // closes by itself
   await expect(page.locator('.tab[data-tab="mine"]')).toHaveClass(/on/); // and shows the library with the new song
   await expect(page.locator(".song", { hasText: title })).toBeVisible();
+  await expect(page.locator(".song", { hasText: title })).toBeInViewport();   // C1: the new song is on screen
   await shot(page, `53-after-upload-${lang}`);
   note("upload-sheet", { proj: info.project.name, title });
 
   for (const t of [title, "中文歌 1"]) {
     const s = (await (await request.get("/api/songs?q=" + encodeURIComponent(t))).json()).songs;
-    for (const m of s) await request.delete(`/api/songs/${m.id}`);
+    for (const m of s) expect(await deleteFromPage(page, request, m.id)).toBe(204);   // this browser uploaded/imported them
   }
   expect(errs).toEqual([]);
 });
@@ -143,6 +153,54 @@ test("Jamendo down: the home lists still show the library songs, never an empty 
   await page.click('.tab[data-tab="zh"]');
   await expect(page.locator(".song").first()).toBeVisible();
   await expect(page.locator(".card.muted")).toHaveCount(0);
+  await expect(page.locator(".toast, .card.err")).toHaveCount(0);           // no error popup
+});
+
+// B1: tap "use" on a Jamendo song: it is imported and queued, the row shows progress, and the chart opens by itself.
+test("use a Jamendo song from the home list: import, progress, then the chart opens", async ({ page, request }, info) => {
+  test.skip(info.project.name !== "webkit-iphone", "one real import + processing is enough (the other projects cover the rest)");
+  const errs = []; page.on("pageerror", e => errs.push(String(e)));
+  await page.goto("/?lang=zh");
+  const name = "Free Hit 3";
+  const row = page.locator('.song[data-kind="jamendo"]', { hasText: name });
+  await expect(row).toBeVisible();
+  await row.locator(".jmUse").click();
+  // the list switches to 我的曲库, where the queued copy shows its stage and progress (sampled until the chart opens)
+  const local = page.locator('.song[data-kind="local"]', { hasText: name });
+  const seen = new Set(); let mineTab = false, shotTaken = false;
+  const t0 = Date.now();
+  while (!/#\/s\//.test(page.url()) && Date.now() - t0 < 10 * 60_000) {
+    mineTab = mineTab || await page.locator('.tab[data-tab="mine"].on').count() > 0;
+    const txt = await local.locator(".m").first().textContent({ timeout: 200 }).catch(() => "");
+    if (txt) seen.add(txt.trim());
+    if (!shotTaken && (await local.locator(".prog").count().catch(() => 0))) { shotTaken = true; await shot(page, `54-jamendo-use-progress-zh`); }
+    await page.waitForTimeout(150);
+  }
+  note("jamendo-use", { proj: info.project.name, mineTab, stages: [...seen], url: page.url(), seconds: (Date.now() - t0) / 1000 });
+  expect(mineTab).toBe(true);
+  expect(page.url()).toMatch(/#\/s\/[a-z0-9]+$/);
+  await expect(page.locator("#play")).toBeEnabled({ timeout: 120_000 });
+  await expect(page.locator("#sheet b[data-seg]").first()).toBeVisible();
+  await shot(page, `55-jamendo-use-chart-zh`);
+  expect([...seen].some(s => /排队|分离|分析|处理|%/.test(s))).toBe(true);
+  const id = page.url().split("/").pop();
+  expect(await deleteFromPage(page, request, id)).toBe(204);
+  expect(errs).toEqual([]);
+});
+
+test("Jamendo answers with empty lists: the library still shows, no error", async ({ page }, info) => {
+  test.skip(info.project.name === "chromium-desktop", "phone screen");
+  const errs = []; page.on("pageerror", e => errs.push(String(e)));
+  await page.route("**/api/jamendo/charts/**", r => r.fulfill({ status: 200, json: { results: [] } }));
+  await page.goto("/?lang=zh");
+  await expect(page.locator('.song[data-kind="local"]').first()).toBeVisible();
+  for (const tab of ["zh", "hot"]) {
+    await page.click(`.tab[data-tab="${tab}"]`);
+    await expect(page.locator('.song[data-kind="local"]').first()).toBeVisible();
+    await expect(page.locator(".card.err")).toHaveCount(0);
+  }
+  note("jamendo-empty", { proj: info.project.name, rows: await page.locator(".song").count() });
+  expect(errs).toEqual([]);
 });
 
 test("no Jamendo client id: no chart requests, the library shows", async ({ page }, info) => {

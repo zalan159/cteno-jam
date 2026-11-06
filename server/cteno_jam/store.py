@@ -14,6 +14,8 @@ Writes go through a temp file + rename so a reader never sees half a file.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -72,7 +74,7 @@ class Store:
 
     # ---------------------------------------------------------------- meta
     def create(self, title: str, artist: str = "", filename: str = "", sid: Optional[str] = None,
-               lyrics: str = "", demo: bool = False, lang: str = "") -> Dict:
+               lyrics: str = "", demo: bool = False, lang: str = "", owner_token: str = "") -> Dict:
         with _lock:
             sid = sid or self.new_id()
             d = self.root / sid
@@ -83,6 +85,8 @@ class Store:
                     "demo": demo, "ai": {"status": "off"}}
             if lang in ("zh", "en"):
                 meta["lang"] = lang      # uploader's UI language: AI review writes its reasons in it
+            if owner_token:
+                meta["owner_hash"] = token_hash(owner_token)   # only the hash; the token lives in the uploader's browser
             write_json(d / "meta.json", meta)
             if lyrics.strip():
                 (d / "lyrics.txt").write_text(lyrics.strip()[:200_000], encoding="utf-8")
@@ -206,6 +210,23 @@ class Store:
             revs = [r for r in self.revisions(sid) if r.get("source") != source]
             write_json(d / "revisions.json", revs)
             self._materialise(sid)
+
+
+def new_owner_token() -> str:
+    """A per-song management token: 32 random bytes, handed to the uploader once."""
+    return secrets.token_urlsafe(32)
+
+
+def token_hash(token: str) -> str:
+    return hashlib.sha256(("cteno-jam-owner:" + token).encode("utf-8")).hexdigest()
+
+
+def owns(m: Dict, token: Optional[str]) -> bool:
+    """True when `token` is the management token of song `m` (songs from before tokens existed have none)."""
+    want = (m or {}).get("owner_hash")
+    if not want or not token or len(token) > 200:
+        return False
+    return hmac.compare_digest(want, token_hash(token))
 
 
 def public_meta(m: Dict) -> Dict:

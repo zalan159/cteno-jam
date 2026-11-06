@@ -21,6 +21,11 @@
     POST   /api/jamendo/import               {"id","lang"} download the track and queue it, keeping its license
     GET    /api/events                       Server-Sent Events: library changes (progress)
     WS     /ws/room/{code}                   sync rooms (see rooms.py)
+
+Managing a song (rename, delete, retry, edits, revisions, review) needs that song's management token in the
+`X-Jam-Owner` header. The token is returned once, as `owner_token`, by the upload / Jamendo import that created
+the song (the browser keeps it in localStorage); the server stores only its hash. With JAM_ADMIN_KEY set, the
+passphrase (`X-Jam-Key`) also manages every song. Server-side admin: `python -m cteno_jam.admin`.
 """
 from __future__ import annotations
 
@@ -51,6 +56,26 @@ NOT_AUDIO_EXT = {".exe", ".apk", ".zip", ".rar", ".7z", ".pdf", ".doc", ".docx",
                  ".jpg", ".jpeg", ".png", ".gif", ".heic", ".webp", ".html", ".js", ".sh", ".bat", ".dmg", ".mov", ".avi", ".mkv"}
 STEM_RE = re.compile(r"^(vocals|guitar|piano|bass|drums|other|mix)$")
 PLAY_DEDUP_S = 30  # one browser session starting the same song again within this window is one play
+MIN_DURATION_S = 5
+NOT_OWNER = ("只有上传这首歌的浏览器才能删除、改名、重试或编辑它（缺少或不匹配这首歌的管理令牌）。"
+             "Only the browser that uploaded this song can delete, rename, retry or edit it (missing or wrong management token).")
+
+
+def _zh(lang: str) -> bool:
+    return (lang or "").lower().startswith("zh")
+
+
+def too_big_message(mb: int, lang: str) -> str:
+    return ("文件超过 %d MB 上限，请换一个小一点的文件（比如 mp3）。" % mb) if _zh(lang) else \
+        ("The file is larger than the %d MB limit; please pick a smaller file (an mp3, for example)." % mb)
+
+
+def duration_message(dur: float, max_s: int, lang: str) -> str:
+    if dur < MIN_DURATION_S:
+        return ("录音太短（%.1f 秒），请上传至少 %d 秒的音频。" % (dur, MIN_DURATION_S)) if _zh(lang) else \
+            ("The recording is too short (%.1f s); upload at least %d seconds." % (dur, MIN_DURATION_S))
+    return ("这首歌有 %d 分 %02d 秒，超过了 %d 分钟的上限，请剪短一些再传。" % (dur // 60, dur % 60, max_s // 60)) if _zh(lang) else \
+        ("The recording is %d:%02d long; the limit is %d minutes. Please trim it and upload again." % (dur // 60, dur % 60, max_s // 60))
 
 
 def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) -> FastAPI:
@@ -70,6 +95,13 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
     def guard(key: Optional[str]):
         if cfg.admin_key and key != cfg.admin_key:
             raise HTTPException(401, "this server needs the upload passphrase (JAM_ADMIN_KEY)")
+
+    def manage(sid: str, owner: Optional[str], key: Optional[str]):
+        """The song's meta when the caller may change it (its management token, or the server passphrase), else 403."""
+        m = meta_or_404(sid)
+        if store.owns(m, owner) or (cfg.admin_key and key == cfg.admin_key):
+            return m
+        raise HTTPException(403, NOT_OWNER)
 
     hits: dict = {}  # client ip -> [upload timestamps], for JAM_UPLOADS_PER_IP_HOUR
 
@@ -166,7 +198,8 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
             raise HTTPException(415, "unsupported file type '%s'; use mp3, m4a, wav or flac" % (ext or "?"))
         upload_guards(request)
         title = title.strip() or os.path.splitext(name)[0]
-        m = st.create(title, artist, name, lyrics=lyrics, lang=norm_lang(lang) or "")
+        token = store.new_owner_token()
+        m = st.create(title, artist, name, lyrics=lyrics, lang=norm_lang(lang) or "", owner_token=token)
         dest = st.dir(m["id"]) / ("original" + ext)
         limit = cfg.max_upload_mb * 1024 * 1024
         size = 0
@@ -178,27 +211,41 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
                         break
                     size += len(chunk)
                     if size > limit:
-                        raise HTTPException(413, "file larger than %d MB" % cfg.max_upload_mb)
+                        raise HTTPException(413, too_big_message(cfg.max_upload_mb, lang))
                     f.write(chunk)
         except HTTPException:
-            st.delete(m["id"])
+            st.delete(m["id"]); refund(request)
             raise
-        return accept(request, m["id"], dest, name, size, lang)
+        return accept(request, m["id"], dest, name, size, lang, token)
 
-    def accept(request: Request, sid: str, dest: Path, name: str, size: int, lang: str):
-        """The file is on disk: refuse empty/encrypted files, else queue it. Shared by upload and Jamendo import."""
+    def accept(request: Request, sid: str, dest: Path, name: str, size: int, lang: str, token: str):
+        """The file is on disk: refuse empty / encrypted / unreadable / too short / too long files now (nothing is
+        queued and no failed record is left), else queue it. Shared by upload and Jamendo import. The response is
+        the only place the song's management token is ever sent."""
         from .review import norm_lang
-        if size == 0:
-            st.delete(sid)
-            raise HTTPException(400, "empty file")
-        fam = drm.sniff(dest, name)
-        if fam:  # encrypted music-app download renamed to .mp3/.flac: refuse it now, not after queueing
+
+        def refuse(code: int, msg: str):
             st.delete(sid)
             refund(request)
-            raise HTTPException(415, drm.message(fam, norm_lang(lang)))
+            raise HTTPException(code, msg)
+        if size == 0:
+            refuse(400, "文件是空的。" if _zh(lang) else "empty file")
+        fam = drm.sniff(dest, name)
+        if fam:  # encrypted music-app download renamed to .mp3/.flac: refuse it now, not after queueing
+            refuse(415, drm.message(fam, norm_lang(lang)))
+        if cfg.check_uploads:
+            from .pipeline import audio
+            try:
+                dur = audio.probe_duration(dest)
+            except audio.AudioError as e:
+                log.info("upload %s refused: %s", sid, e)
+                refuse(415, drm.unreadable(norm_lang(lang)))
+            if dur < MIN_DURATION_S or dur > cfg.max_duration_s:
+                refuse(413 if dur > cfg.max_duration_s else 400, duration_message(dur, cfg.max_duration_s, lang))
+            st.update(sid, duration=round(dur, 2))
         st.update(sid, size=size)
         pos = jobs.submit(sid)
-        return {**store.public_meta(st.meta(sid)), "queue_position": pos}
+        return {**store.public_meta(st.meta(sid)), "queue_position": pos, "owner_token": token}
 
     # ---------------------------------------------------------------- Jamendo (optional free catalogue)
     def jamendo_on():
@@ -281,7 +328,9 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         v = jamendo.view(t)
         upload_guards(request)
         from .review import norm_lang
-        m = st.create(v["title"] or "Jamendo %s" % tid, v["artist"], "jamendo-%s.mp3" % tid, lang=norm_lang(lang) or "")
+        token = store.new_owner_token()
+        m = st.create(v["title"] or "Jamendo %s" % tid, v["artist"], "jamendo-%s.mp3" % tid, lang=norm_lang(lang) or "",
+                      owner_token=token)
         st.update(m["id"], license=v["license"], license_url=v["license_url"],
                   source={"kind": "jamendo", "id": tid, "page": v["page"], "artist": v["artist"], "album": v["album"]})
         dest = st.dir(m["id"]) / "original.mp3"
@@ -296,7 +345,7 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
                         return size
                     size += len(b)
                     if size > limit:
-                        raise HTTPException(413, "file larger than %d MB" % cfg.max_upload_mb)
+                        raise HTTPException(413, too_big_message(cfg.max_upload_mb, lang))
                     f.write(b)
         try:
             size = await asyncio.to_thread(fetch)
@@ -307,7 +356,7 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
             st.delete(m["id"]); refund(request)
             log.info("jamendo download %s failed: %s", tid, type(e).__name__)
             raise HTTPException(502, "could not download the track from Jamendo; try again")
-        return accept(request, m["id"], dest, "jamendo-%s.mp3" % tid, size, lang)
+        return accept(request, m["id"], dest, "jamendo-%s.mp3" % tid, size, lang, token)
 
     @app.get("/api/songs/{sid}")
     def get_song_meta(sid: str):
@@ -317,9 +366,9 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         return m
 
     @app.patch("/api/songs/{sid}")
-    async def rename(sid: str, request: Request, x_jam_key: Optional[str] = Header(None)):
-        guard(x_jam_key)
-        meta_or_404(sid)
+    async def rename(sid: str, request: Request, x_jam_key: Optional[str] = Header(None),
+                     x_jam_owner: Optional[str] = Header(None)):
+        manage(sid, x_jam_owner, x_jam_key)
         body = await request.json()
         fields = {k: str(body[k]).strip()[:120] for k in ("title", "artist") if k in body}
         if "title" in fields and not fields["title"]:
@@ -327,18 +376,17 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         return store.public_meta(st.update(sid, **fields))
 
     @app.delete("/api/songs/{sid}", status_code=204)
-    def delete(sid: str, x_jam_key: Optional[str] = Header(None)):
-        guard(x_jam_key)
+    def delete(sid: str, x_jam_key: Optional[str] = Header(None), x_jam_owner: Optional[str] = Header(None)):
         m = meta_or_404(sid)
         if m.get("demo") and os.environ.get("JAM_PROTECT_DEMO", "1") == "1":
-            raise HTTPException(403, "the bundled demo song cannot be deleted")
+            raise HTTPException(403, "内置演示歌不能删除。The bundled demo song cannot be deleted.")
+        manage(sid, x_jam_owner, x_jam_key)
         jobs.cancel(sid)
         st.delete(sid)
 
     @app.post("/api/songs/{sid}/retry")
-    def retry(sid: str, x_jam_key: Optional[str] = Header(None)):
-        guard(x_jam_key)
-        m = meta_or_404(sid)
+    def retry(sid: str, x_jam_key: Optional[str] = Header(None), x_jam_owner: Optional[str] = Header(None)):
+        m = manage(sid, x_jam_owner, x_jam_key)
         if m["status"] in ("queued", "processing"):
             raise HTTPException(409, "the song is already being processed")
         if st.original(sid) is None:
@@ -386,9 +434,9 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         return FileResponse(p, media_type="audio/mpeg", headers={"Cache-Control": "public, max-age=86400"})
 
     @app.post("/api/songs/{sid}/edits")
-    async def edits(sid: str, request: Request, x_jam_key: Optional[str] = Header(None)):
-        guard(x_jam_key)
-        meta_or_404(sid)
+    async def edits(sid: str, request: Request, x_jam_key: Optional[str] = Header(None),
+                    x_jam_owner: Optional[str] = Header(None)):
+        manage(sid, x_jam_owner, x_jam_key)
         body = await request.json()
         ps = body.get("patches")
         if not isinstance(ps, list) or not ps or len(ps) > 200:
@@ -405,9 +453,9 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         return {"song": song, "rejected": rejected}
 
     @app.post("/api/songs/{sid}/revisions")
-    async def revisions(sid: str, request: Request, x_jam_key: Optional[str] = Header(None)):
-        guard(x_jam_key)
-        meta_or_404(sid)
+    async def revisions(sid: str, request: Request, x_jam_key: Optional[str] = Header(None),
+                        x_jam_owner: Optional[str] = Header(None)):
+        manage(sid, x_jam_owner, x_jam_key)
         body = await request.json()
         status = body.get("status")
         ids = body.get("ids")
@@ -422,9 +470,9 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
             raise HTTPException(400, str(e))
 
     @app.post("/api/songs/{sid}/review")
-    def review(sid: str, x_jam_key: Optional[str] = Header(None), lang: Optional[str] = Query(None)):
-        guard(x_jam_key)
-        m = meta_or_404(sid)
+    def review(sid: str, x_jam_key: Optional[str] = Header(None), lang: Optional[str] = Query(None),
+               x_jam_owner: Optional[str] = Header(None)):
+        m = manage(sid, x_jam_owner, x_jam_key)
         from .review import norm_lang
         if norm_lang(lang):                 # re-run in the language the user is looking at now
             st.update(sid, lang=norm_lang(lang))

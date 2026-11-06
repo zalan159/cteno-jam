@@ -7,6 +7,20 @@ import { getLang } from "./i18n.js";
 const CFG = window.JAM_CONFIG || {};
 export const isStatic = !!CFG.static;
 const KEY = () => localStorage.getItem("jam.key") || "";
+// Management tokens of the songs this browser uploaded or imported: { songId: token }. The server returns a song's
+// token once (upload / import response) and keeps only its hash; rename/delete/retry/edit send it as X-Jam-Owner.
+// Another browser (or cleared site data) has no token, so the song is "someone else's" there.
+const OWNED = "jam.owned";
+const owned = () => { try { return JSON.parse(localStorage.getItem(OWNED)) || {}; } catch (e) { return {}; } };
+const remember = m => {
+  if (!m || !m.id || !m.owner_token) return m;
+  const o = owned(); o[m.id] = m.owner_token;
+  try { localStorage.setItem(OWNED, JSON.stringify(o)); } catch (e) {}
+  const { owner_token, ...rest } = m;
+  return rest;
+};
+const forget = id => { const o = owned(); if (id in o) { delete o[id]; localStorage.setItem(OWNED, JSON.stringify(o)); } };
+const OWN = id => { const tk = owned()[id]; return tk ? { "X-Jam-Owner": tk } : {}; };
 
 async function j(url, opts = {}) {
   const headers = Object.assign({}, opts.headers || {});
@@ -49,19 +63,29 @@ export const api = {
       x.upload.onprogress = e => e.lengthComputable && onProgress && onProgress(e.loaded / e.total);
       x.onload = () => {
         let b = null; try { b = JSON.parse(x.responseText); } catch (e) {}
-        if (x.status >= 200 && x.status < 300) resolve(b);
+        if (x.status >= 200 && x.status < 300) resolve(remember(b));
         else { const err = new Error((b && b.detail) || `HTTP ${x.status}`); err.status = x.status; reject(err); }
       };
       x.onerror = () => reject(new Error("network error"));
       x.send(fd);
     });
   },
-  rename(id, fields) { return j(`/api/songs/${id}`, { method: "PATCH", json: fields }); },
-  remove(id) { return j(`/api/songs/${id}`, { method: "DELETE" }); },
-  retry(id) { return j(`/api/songs/${id}/retry`, { method: "POST" }); },
-  review(id) { return j(`/api/songs/${id}/review?lang=${getLang()}`, { method: "POST" }); },
-  edits(id, patches) { return j(`/api/songs/${id}/edits`, { method: "POST", json: { patches } }); },
-  revisions(id, ids, status, source) { return j(`/api/songs/${id}/revisions`, { method: "POST", json: { ids, status, source } }); },
+  // may this browser manage the song? (its token, or the server passphrase on a passphrase-protected server)
+  canManage(m, info) {
+    if (isStatic || !m) return false;
+    if (info && info.needs_key && KEY()) return true;
+    return !!owned()[m.id];
+  },
+  rename(id, fields) { return j(`/api/songs/${id}`, { method: "PATCH", json: fields, headers: OWN(id) }); },
+  async remove(id) {
+    try { await j(`/api/songs/${id}`, { method: "DELETE", headers: OWN(id) }); }
+    catch (e) { if (e.status !== 404) throw e; }
+    forget(id);
+  },
+  retry(id) { return j(`/api/songs/${id}/retry`, { method: "POST", headers: OWN(id) }); },
+  review(id) { return j(`/api/songs/${id}/review?lang=${getLang()}`, { method: "POST", headers: OWN(id) }); },
+  edits(id, patches) { return j(`/api/songs/${id}/edits`, { method: "POST", json: { patches }, headers: OWN(id) }); },
+  revisions(id, ids, status, source) { return j(`/api/songs/${id}/revisions`, { method: "POST", json: { ids, status, source }, headers: OWN(id) }); },
   events(onSongs) {
     if (isStatic || !window.EventSource) return () => {};
     const es = new EventSource("/api/events");
@@ -79,6 +103,6 @@ export const api = {
   jamendoSearch(q, offset = 0) { return j(`/api/jamendo/search?q=${encodeURIComponent(q || "")}&offset=${offset || 0}`); },
   jamendoChart(kind) { return j(`/api/jamendo/charts/${encodeURIComponent(kind)}`); },
   jamendoPreview(id) { return `/api/jamendo/preview/${encodeURIComponent(id)}.mp3`; },
-  jamendoImport(id, lang) { return j("/api/jamendo/import", { method: "POST", json: { id, lang } }); },
+  async jamendoImport(id, lang) { return remember(await j("/api/jamendo/import", { method: "POST", json: { id, lang } })); },
   setKey(k) { localStorage.setItem("jam.key", k || ""); },
 };
