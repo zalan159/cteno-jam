@@ -27,6 +27,7 @@
 <img src="docs/screenshots/big-screen.png" width="520" alt="big screen mode on a TV">
 </p>
 <p align="center">
+<img src="docs/screenshots/home-phone.png" width="200" alt="home: hot / Chinese / my library">
 <img src="docs/screenshots/library-phone.png" width="200" alt="library">
 <img src="docs/screenshots/ai-changes.png" width="200" alt="what the AI changed and why">
 <img src="docs/screenshots/share.png" width="200" alt="share to other phones">
@@ -41,7 +42,8 @@
 
 For parties, karaoke nights, family evenings and kids' music time:
 
-1. **Upload** any recording (mp3 / m4a / wav / flac / amr — from a phone's Files app or a WeChat chat is fine), **record** one right in the browser, or type in the library search box: with the optional **Jamendo** catalogue configured, the same search also finds Creative Commons tracks there (only tracks whose artists allow downloads; source and license are shown and kept) — tap one to use it. Every song shows its popularity (▶ 1.2万 / ▶ 12.3K) and lists are sorted most played first. It joins a queue; you see each stage and its progress, and the reason if it fails, with a retry button.
+1. **Open it and pick a song.** The first screen is a song list with three tabs — **Hot** (this library plus the top 20 of Jamendo's Creative Commons catalogue by all-time popularity), **Chinese** (Jamendo `lang=zh`) and **My library** — each row with plays, license, preview and "use this". No sign-in, no search needed; if Jamendo is down or not configured you still see the library. Search and **Upload** sit as small buttons next to the tabs.
+   Or **upload** any recording (mp3 / m4a / wav / flac / amr — from a phone's Files app or a WeChat chat is fine), **record** one right in the browser, or type in the library search box: with the optional **Jamendo** catalogue configured, the same search also finds Creative Commons tracks there (only tracks whose artists allow downloads; source and license are shown and kept) — tap one to use it. Every song shows its popularity (▶ 1.2万 / ▶ 12.3K) and lists are sorted most played first. It joins a queue; you see each stage and its progress, and the reason if it fails, with a retry button.
 2. **Automatic processing**
    - six stems with [Demucs](https://github.com/facebookresearch/demucs) `htdemucs_6s`: vocals, guitar, piano, bass, drums, other
    - key, tempo, beats and downbeats; beat-synchronous chord recognition (chroma templates + bass + Viterbi smoothing)
@@ -219,7 +221,8 @@ Docker image) and the Whisper model (~480 MB for `small`, only if no lyrics are 
 
 ### 能做什么
 
-1. **上传**：mp3 / m4a / wav / flac / amr，手机上可以从「文件」或微信聊天记录里选；也可以在网页里**直接录一段**，或者直接在曲库搜索框里搜：配置了 `JAM_JAMENDO_CLIENT_ID` 时，同一个搜索框也会搜 **Jamendo 免费曲库**，结果和本地曲库排在一起（只列作者允许下载的曲目，标出来源和许可证），点一下就能用；没配就只搜本地。每首歌显示热度（▶ 1.2万），列表按热度排序：本地歌按本站播放次数（真正开始播放或开合奏时 +1，同一会话 30 秒内只算一次），Jamendo 用它的累计收听数；混排时本地 1 次播放折算 1000 次 Jamendo 收听，整张表按这个分数从高到低排（Jamendo 的 popularity_total 决定返回哪些歌，但它的顺序不是按收听数），相同时本地在前。进入后台队列，能看到每一步和进度；失败会写明原因，可以重试。曲库支持搜索、改名、删除。
+1. **打开就能挑歌**：首页第一屏就是歌单，分「热门」（本站曲库 + Jamendo 免费曲库按累计热度前 20）、「中文」（Jamendo 中文歌）、「我的曲库」三栏，每首带热度、许可证、试听和「用这首」；不用登录、不用搜索，Jamendo 连不上或没配置时照样显示本站曲库。搜索和「上传」是栏目旁的小按钮，上传在弹层里完成，传完自动回到「我的曲库」。
+   也可以**上传**：mp3 / m4a / wav / flac / amr，手机上可以从「文件」或微信聊天记录里选；也可以在网页里**直接录一段**，或者直接在曲库搜索框里搜：配置了 `JAM_JAMENDO_CLIENT_ID` 时，同一个搜索框也会搜 **Jamendo 免费曲库**，结果和本地曲库排在一起（只列作者允许下载的曲目，标出来源和许可证），点一下就能用；没配就只搜本地。每首歌显示热度（▶ 1.2万），列表按热度排序：本地歌按本站播放次数（真正开始播放或开合奏时 +1，同一会话 30 秒内只算一次），Jamendo 用它的累计收听数；混排时本地 1 次播放折算 1000 次 Jamendo 收听，整张表按这个分数从高到低排（Jamendo 的 popularity_total 决定返回哪些歌，但它的顺序不是按收听数），相同时本地在前。进入后台队列，能看到每一步和进度；失败会写明原因，可以重试。曲库支持搜索、改名、删除。
 2. **自动处理**
    - 用 Demucs `htdemucs_6s` 拆成 6 轨：人声、吉他、钢琴、贝斯、鼓、其他
    - 调性、BPM、节拍和强拍；按拍识别和弦（色度模板 + 贝斯根音 + Viterbi 平滑）
