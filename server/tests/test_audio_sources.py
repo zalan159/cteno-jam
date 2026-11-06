@@ -25,7 +25,7 @@ MP3 = b"ID3\x04\x00" + b"\x00" * 2048
 TRACKS = [
     {"id": "1001", "name": "Open Road", "artist_name": "Free Band", "album_name": "Roads", "duration": 185,
      "image": "", "shareurl": "https://www.jamendo.com/track/1001", "audiodownload_allowed": True,
-     "license_ccurl": "http://creativecommons.org/licenses/by-sa/3.0/"},
+     "license_ccurl": "http://creativecommons.org/licenses/by-sa/3.0/", "stats": {"rate_listened_total": 123456}},
     {"id": "1002", "name": "Locked Song", "artist_name": "Closed Band", "album_name": "", "duration": 200,
      "image": "", "shareurl": "https://www.jamendo.com/track/1002", "audiodownload_allowed": False,
      "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/"},
@@ -175,7 +175,9 @@ def test_jamendo_search_only_downloadable_and_never_leaks_client_id(tmp_path, mo
         assert CLIENT_ID not in r.text
         assert c.get("/api/jamendo/search?q=locked").json()["results"] == []
         path, q, _ = FakeJamendo.seen[0]
-        assert q["include"] == "licenses" and q["client_id"] == CLIENT_ID
+        assert q["include"] == "licenses stats" and q["client_id"] == CLIENT_ID
+        assert q["order"] == "popularity_total"                         # most popular first, query or not
+        assert res[0]["listens"] == 123456
 
 
 def test_jamendo_preview_is_proxied_with_range(tmp_path, monkeypatch, fake_jamendo):
@@ -221,3 +223,28 @@ def test_license_names():
     assert license_name("http://creativecommons.org/licenses/by-nc-sa/3.0/") == "CC BY-NC-SA 3.0"
     assert license_name("https://creativecommons.org/publicdomain/zero/1.0/") == "CC0 1.0"
     assert license_name("") == "Jamendo license"
+
+
+def test_jamendo_listens_field():
+    from cteno_jam.jamendo import listens
+    assert listens({"stats": {"rate_listened_total": "42"}}) == 42
+    assert listens({"stats": None}) == 0 and listens({}) == 0 and listens({"stats": {"rate_listened_total": "x"}}) == 0
+
+
+def test_reimporting_a_jamendo_track_returns_the_library_copy(tmp_path, monkeypatch, fake_jamendo):
+    with make_client(tmp_path, monkeypatch, jamendo_client_id=CLIENT_ID, jamendo_api_url=fake_jamendo) as c:
+        first = c.post("/api/jamendo/import", json={"id": "1001"}).json()
+        wait_status(c, first["id"], ("ready",))
+        n = sum(1 for p, _, _ in FakeJamendo.seen if p.startswith("/dl/"))
+        again = c.post("/api/jamendo/import", json={"id": "1001"})
+        assert again.status_code == 200 and again.json()["id"] == first["id"] and again.json()["existing"] is True
+        assert sum(1 for p, _, _ in FakeJamendo.seen if p.startswith("/dl/")) == n     # no second download
+        assert len(c.get("/api/songs").json()["songs"]) == 1
+
+
+def test_search_without_client_id_is_local_only(tmp_path, monkeypatch):
+    """No JAM_JAMENDO_CLIENT_ID: the page asks /api/info (jamendo false) and only filters the library."""
+    monkeypatch.delenv("JAM_JAMENDO_CLIENT_ID", raising=False)
+    with make_client(tmp_path, monkeypatch) as c:
+        assert c.get("/api/info").json()["jamendo"] is False
+        assert c.get("/api/songs?q=anything").status_code == 200

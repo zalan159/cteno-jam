@@ -6,6 +6,7 @@ import { Sync, randomRoom } from "./sync.js";
 import { buildChart, chartOptions, aiTouched, sectionAt, chordAt } from "./chart.js";
 import { diagramSVG } from "./diagrams.js";
 import { parseChord, transpose } from "./theory.js";
+import { mixResults, sortLocal, playsLabel } from "./popularity.js";
 import { encryptedFamily, acceptFor, isWeChat, checkPicked, pickRecordingType, extForType, micErrorKey } from "./upload_check.js";
 import qrcode from "../vendor/qrcode.mjs";
 
@@ -78,47 +79,104 @@ function stageLabel(m) {
 
 async function libraryView(q) {
   document.title = "Cteno Jam";
-  let songs = [], query = q.get("q") || "";
+  // One search box for everything: the local library (filtered here) and, when the server has a Jamendo
+  // client id, Jamendo's free catalogue (asked on the server, debounced). Both are shown in one list,
+  // most played first — see popularity.js for how local plays and Jamendo listens are compared.
+  let songs = [], query = q.get("q") || "", jm = { q: "", results: [], loading: false, error: null };
+  let jmTimer = 0, jmSeq = 0, previewId = null;
+  const audio = new Audio(); audio.preload = "none"; audio.id = "jmAudio";
+  onCleanup(() => { clearTimeout(jmTimer); audio.pause(); audio.removeAttribute("src"); });
   const render = () => {
     app.innerHTML = topBar(`<div class="brand"><i></i>${t("app")}</div><div class="grow"></div>`) + `
       <main class="lib">
         <p class="hero">${esc(t("tagline"))}</p>
-        <input type="search" id="q" placeholder="${esc(t("search"))}" value="${esc(query)}" autocomplete="off">
+        <input type="search" id="q" placeholder="${esc(t(INFO.jamendo ? "search_all" : "search"))}" value="${esc(query)}" autocomplete="off" enterkeyhint="search">
         ${INFO.upload ? uploadCard() : isStatic ? "" : `<div class="card muted">${esc(t("no_upload"))}</div>`}
         <div class="songs" id="songs"></div>
       </main>`;
     bindLang(render);
-    $("#q").oninput = e => { query = e.target.value; list(); };
+    $("#q").oninput = e => { query = e.target.value; lastHtml = ""; drawSongs(); askJamendo(); };
+    $("#q").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); clearTimeout(jmTimer); askJamendo(0); e.target.blur(); } };
     if (INFO.upload) bindUpload();
-    drawSongs();
+    lastHtml = ""; drawSongs();
+  };
+  // Jamendo results for the current query (only when the server has a client id; never on an empty query)
+  const askJamendo = (delay = 400) => {
+    clearTimeout(jmTimer);
+    const ql = query.trim();
+    if (!INFO.jamendo || isStatic || ql.length < 2) { jmSeq++; jm = { q: "", results: [], loading: false, error: null }; lastHtml = ""; drawSongs(); return; }
+    if (jm.q === ql && !jm.error) return;
+    jmTimer = setTimeout(async () => {
+      const seq = ++jmSeq;
+      jm = { q: ql, results: jm.q === ql ? jm.results : [], loading: true, error: null }; lastHtml = ""; drawSongs();
+      try {
+        const r = await api.jamendoSearch(ql, 0);
+        if (seq !== jmSeq) return;
+        jm = { q: ql, results: r.results || [], loading: false, error: null };
+      } catch (e) {
+        if (seq !== jmSeq) return;
+        jm = { q: ql, results: [], loading: false, error: e.message };   // local results still show; just a quiet note
+      }
+      lastHtml = ""; drawSongs();
+    }, delay);
   };
   let lastHtml = "";
+  const localRow = m => {
+    const busy = m.status === "queued" || m.status === "processing" || m.status === "uploading";
+    const ai = m.ai && m.ai.status === "done" ? `<span class="badge ai">AI ✓ ${m.ai.accepted || 0}</span>` : "";
+    const fromJm = m.source && m.source.kind === "jamendo";
+    return `<div class="song" data-kind="local" data-id="${esc(m.id)}">
+      <div class="art" style="background:hsl(${hue(m.id)} 70% 62%)">${esc((m.title || "?").trim()[0] || "?")}</div>
+      <div class="info">
+        <div class="t">${esc(m.title)}${m.demo ? `<span class="badge">${esc(t("demo_badge"))}</span>` : ""}${ai}</div>
+        <div class="m ${m.status === "failed" ? "err" : ""}">${esc(m.artist ? m.artist + " · " : "")}${m.duration ? fmt(m.duration) + " · " : ""}${esc(stageLabel(m))}</div>
+        <div class="m src-line"><span class="plays" title="${esc(t("plays_title_local"))}">${esc(playsLabel(m.plays || 0, getLang()))}</span>
+          <span class="badge srcb ${fromJm ? "jmb" : "localb"}">${esc(t(fromJm ? "src_badge_jamendo_lib" : "src_badge_local"))}</span>${!m.demo && m.license ? `<a class="badge lic" href="${esc(m.license_url || (m.source && m.source.page) || "#")}" target="_blank" rel="noopener" title="${esc(t("jm_license"))}">${esc(m.license)}</a>` : ""}</div>
+        ${m.status === "failed" && m.error ? `<div class="m err">${esc(m.error)}</div>` : ""}
+        ${busy ? `<div class="prog"><i style="width:${Math.round((m.progress || 0) * 100)}%"></i></div>` : ""}
+      </div>
+      <div class="acts">
+        ${m.status === "ready" ? `<button class="primary" data-act="open">${esc(t("open"))}</button>` : ""}
+        ${m.status === "failed" && !isStatic ? `<button data-act="retry">${esc(t("retry"))}</button>` : ""}
+        ${!isStatic && INFO.upload ? `<button class="ghost" data-act="menu" aria-label="more">⋯</button>` : ""}
+      </div></div>`;
+  };
+  const jmRow = r => `<div class="song" data-kind="jamendo" data-id="${esc(r.id)}">
+      ${r.image ? `<img class="art" src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="art" style="background:hsl(${hue(r.id)} 60% 55%)">${esc((r.title || "?").trim()[0] || "?")}</div>`}
+      <div class="info">
+        <div class="t">${esc(r.title)}</div>
+        <div class="m">${esc(r.artist)}${r.duration ? " · " + fmt(r.duration) : ""}</div>
+        <div class="m src-line"><span class="plays" title="${esc(t("plays_title_jamendo"))}">${esc(playsLabel(r.listens || 0, getLang()))}</span>
+          <a class="badge srcb jmb" href="${esc(r.page || "https://www.jamendo.com")}" target="_blank" rel="noopener">Jamendo</a><a class="badge lic jmLic" href="${esc(r.license_url || r.page)}" target="_blank" rel="noopener" title="${esc(t("jm_license"))}">${esc(r.license)}</a></div>
+      </div>
+      <div class="acts">
+        <button class="jmPlay" data-act="preview" aria-label="${esc(t("jm_play"))}">${previewId === r.id && !audio.paused ? "❚❚" : "▶"}</button>
+        <button class="primary jmUse" data-act="use">${esc(t("jm_use"))}</button>
+      </div></div>`;
   const drawSongs = () => {
     const el = $("#songs"); if (!el) return;
     const ql = query.trim().toLowerCase();
-    const shown = songs.filter(s => !ql || (s.title || "").toLowerCase().includes(ql) || (s.artist || "").toLowerCase().includes(ql));
-    if (!shown.length) { el.innerHTML = `<div class="card muted">${esc(t("empty"))}</div>`; lastHtml = ""; return; }
-    const html = shown.map(m => {
-      const busy = m.status === "queued" || m.status === "processing" || m.status === "uploading";
-      const ai = m.ai && m.ai.status === "done" ? `<span class="badge ai">AI ✓ ${m.ai.accepted || 0}</span>` : "";
-      return `<div class="song" data-id="${esc(m.id)}">
-        <div class="art" style="background:hsl(${hue(m.id)} 70% 62%)">${esc((m.title || "?").trim()[0] || "?")}</div>
-        <div class="info">
-          <div class="t">${esc(m.title)}${m.demo ? `<span class="badge">${esc(t("demo_badge"))}</span>` : ""}${!m.demo && m.license ? `<span class="badge lic" title="${esc(t("jm_license"))}">${esc(m.license)}</span>` : ""}${ai}</div>
-          <div class="m ${m.status === "failed" ? "err" : ""}">${esc(m.artist ? m.artist + " · " : "")}${m.duration ? fmt(m.duration) + " · " : ""}${esc(stageLabel(m))}</div>
-          ${m.status === "failed" && m.error ? `<div class="m err">${esc(m.error)}</div>` : ""}
-          ${busy ? `<div class="prog"><i style="width:${Math.round((m.progress || 0) * 100)}%"></i></div>` : ""}
-        </div>
-        <div class="acts">
-          ${m.status === "ready" ? `<button class="primary" data-act="open">${esc(t("open"))}</button>` : ""}
-          ${m.status === "failed" && !isStatic ? `<button data-act="retry">${esc(t("retry"))}</button>` : ""}
-          ${!isStatic && INFO.upload ? `<button class="ghost" data-act="menu" aria-label="more">⋯</button>` : ""}
-        </div></div>`;
-    }).join("");
+    const local = songs.filter(s => !ql || (s.title || "").toLowerCase().includes(ql) || (s.artist || "").toLowerCase().includes(ql));
+    const jmOn = INFO.jamendo && !isStatic && ql.length >= 2 && jm.q.toLowerCase() === ql;
+    const rows = ql ? mixResults(local, jmOn ? jm.results : []) : sortLocal(local).map(song => ({ kind: "local", song }));
+    window.__jamList = rows.map(r => r.kind === "local" ? { kind: "local", id: r.song.id, title: r.song.title, plays: r.song.plays || 0, score: r.score }
+      : { kind: "jamendo", id: r.track.id, title: r.track.title, listens: r.track.listens || 0, license: r.track.license, score: r.score });
+    let note = "";
+    if (INFO.jamendo && ql.length >= 2) {
+      if (jm.loading) note = `<div class="muted jmNote">${esc(t("jm_searching"))}</div>`;
+      else if (jm.error) note = `<div class="muted jmNote">${esc(t("jm_unreachable"))}</div>`;
+      else if (jmOn) note = `<div class="muted jmNote">${esc(t("jm_from"))}</div>`;
+    }
+    if (!rows.length) {
+      const html = (jm.loading ? "" : `<div class="card muted">${esc(t(ql ? "nothing_found" : "empty"))}</div>`) + note;
+      if (html !== lastHtml) { lastHtml = html; el.innerHTML = html; }
+      return;
+    }
+    const html = rows.map(r => r.kind === "local" ? localRow(r.song) : jmRow(r.track)).join("") + note;
     if (html === lastHtml) return; // nothing changed: keep the DOM (and any tap in progress)
     lastHtml = html;
     el.innerHTML = html;
-    el.querySelectorAll(".song").forEach(row => {
+    el.querySelectorAll('.song[data-kind="local"]').forEach(row => {
       const id = row.dataset.id, m = songs.find(s => s.id === id);
       row.querySelectorAll("button").forEach(b => b.onclick = async ev => {
         ev.stopPropagation();
@@ -129,12 +187,43 @@ async function libraryView(q) {
           if (act === "menu") songMenu(m);
         } catch (e) { toast(e.message); }
       });
-      row.onclick = () => m.status === "ready" && go(`#/s/${id}`);
+      row.querySelectorAll("a").forEach(a => a.onclick = ev => ev.stopPropagation());
+      row.onclick = () => m && m.status === "ready" && go(`#/s/${id}`);
+    });
+    el.querySelectorAll('.song[data-kind="jamendo"]').forEach(row => {
+      const id = row.dataset.id, r = jm.results.find(x => x.id === id);
+      row.querySelectorAll("a").forEach(a => a.onclick = ev => ev.stopPropagation());
+      const use = async () => {
+        if (!r || row.classList.contains("busy")) return;
+        if ($("#upKey")) api.setKey($("#upKey").value);
+        row.classList.add("busy"); const b = row.querySelector(".jmUse"); b.disabled = true; b.textContent = t("jm_importing");
+        try {
+          const m = await api.jamendoImport(id, getLang());
+          if (previewId === id) audio.pause();
+          if (m.status === "ready") return go(`#/s/${m.id}`);
+          toast(t("jm_added", { t: r.title }), 3000);
+          await list();
+        } catch (e) { toast(e.message, 4000); row.classList.remove("busy"); b.disabled = false; b.textContent = t("jm_use"); }
+      };
+      row.querySelector(".jmUse").onclick = ev => { ev.stopPropagation(); use(); };
+      row.querySelector(".jmPlay").onclick = ev => {
+        ev.stopPropagation();
+        if (previewId === id && !audio.paused) { audio.pause(); return; }
+        previewId = id; audio.src = api.jamendoPreview(id); audio.play().catch(e => toast(e.message));
+      };
+      row.onclick = () => use();
     });
   };
-  const list = async () => { try { songs = await api.list(""); drawSongs(); } catch (e) { $("#songs").innerHTML = `<div class="card err">${esc(e.message)}</div>`; } };
+  const setPreviewBtns = () => document.querySelectorAll('.song[data-kind="jamendo"]').forEach(row => {
+    const on = row.dataset.id === previewId && !audio.paused, b = row.querySelector(".jmPlay");
+    if (b) { b.textContent = on ? "❚❚" : "▶"; b.classList.toggle("on", on); b.setAttribute("aria-label", t(on ? "jm_pause" : "jm_play")); }
+  });
+  audio.onplay = audio.onpause = audio.onended = setPreviewBtns;
+  window.__jamPreview = audio;
+  const list = async () => { try { songs = await api.list(""); lastHtml = ""; drawSongs(); } catch (e) { $("#songs").innerHTML = `<div class="card err">${esc(e.message)}</div>`; } };
   render();
   await list();
+  askJamendo(0);
   onCleanup(api.events(s => { songs = s; drawSongs(); }));
 }
 
@@ -153,7 +242,6 @@ function songMenu(m) {
 }
 
 const MIC_SVG = `<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>`;
-const NOTE_SVG = `<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>`;
 
 function uploadCard() {
   const ua = navigator.userAgent, android = /Android/i.test(ua);
@@ -167,7 +255,6 @@ function uploadCard() {
       <span class="srcs-or">${esc(t("src_or"))}</span>
       <div class="srcs-btns">
         <button type="button" class="src" id="recBtn">${MIC_SVG}<span>${esc(t("src_record"))}</span></button>
-        ${INFO.jamendo ? `<button type="button" class="src" id="jmBtn">${NOTE_SVG}<span>${esc(t("src_jamendo"))}</span></button>` : ""}
       </div>
     </div>
     <details class="wxtip" id="wxTip"${isWeChat(ua) ? " open" : ""}><summary>${esc(t("wx_tip_title"))}</summary>
@@ -216,7 +303,6 @@ function bindUpload() {
   drop.addEventListener("drop", ev => pick(ev.dataTransfer.files[0]));
   drop.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); f.click(); } });
   $("#recBtn").onclick = () => recordPanel((fl, title) => pick(fl, { recorded: true, title }));
-  if ($("#jmBtn")) $("#jmBtn").onclick = () => jamendoPanel();
   $("#upGo").onclick = async () => {
     if (!file) return;
     if ($("#upKey")) api.setKey($("#upKey").value);
@@ -331,64 +417,6 @@ function recordPanel(onDone) {
   });
 }
 
-// ------------------------------------------------------------------ Jamendo free catalogue
-function jamendoPanel() {
-  panel(`<h3>${esc(t("jm_title"))}</h3>
-    <p class="muted" style="margin:0 0 10px;font-size:13px">${esc(t("jm_desc"))}</p>
-    <form class="row jmq" id="jmForm"><input type="search" id="jmQ" placeholder="${esc(t("jm_search"))}" autocomplete="off" enterkeyhint="search">
-      <button class="primary" id="jmGo">${esc(t("jm_go"))}</button></form>
-    <div class="muted jmHead" id="jmHead">${esc(t("jm_popular"))}</div>
-    <div class="jmList" id="jmList"></div>
-    <button class="hidden jmMore" id="jmMore">${esc(t("jm_more"))}</button>
-    <audio id="jmAudio" preload="none"></audio>
-    <p class="muted jmFoot">${esc(t("jm_from"))}</p>`, (close, el) => {
-    let q = "", next = 0, playing = null;
-    const audio = $("#jmAudio", el);
-    const setBtn = (id, on) => { const b = el.querySelector(`.jmPlay[data-id="${id}"]`); if (b) { b.textContent = on ? "❚❚" : "▶"; b.setAttribute("aria-label", t(on ? "jm_pause" : "jm_play")); b.classList.toggle("on", on); } };
-    audio.onended = audio.onpause = () => { if (playing) setBtn(playing, false); };
-    audio.onplay = () => playing && setBtn(playing, true);
-    el.addEventListener("close", () => { audio.pause(); audio.removeAttribute("src"); });
-    const row = r => `<div class="jm" data-id="${esc(r.id)}">
-      ${r.image ? `<img class="jmArt" src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="jmArt" style="background:hsl(${hue(r.id)} 60% 55%)"></div>`}
-      <div class="jmInfo"><div class="t">${esc(r.title)}</div>
-        <div class="m">${esc(r.artist)}${r.duration ? " · " + fmt(r.duration) : ""}</div>
-        <div class="m"><a class="jmLic" href="${esc(r.license_url || r.page)}" target="_blank" rel="noopener">${esc(r.license)}</a>${r.page ? ` · <a href="${esc(r.page)}" target="_blank" rel="noopener">Jamendo</a>` : ""}</div></div>
-      <button class="jmPlay" data-id="${esc(r.id)}" aria-label="${esc(t("jm_play"))}">▶</button>
-      <button class="primary jmUse" data-id="${esc(r.id)}">${esc(t("jm_use"))}</button></div>`;
-    const load = async (more) => {
-      const list = $("#jmList", el);
-      if (!more) { list.innerHTML = `<div class="muted">${esc(t("loading"))}</div>`; next = 0; }
-      try {
-        const r = await api.jamendoSearch(q, next);
-        if (!more) list.innerHTML = "";
-        if (!r.results.length && !more) list.innerHTML = `<div class="muted">${esc(t("jm_none"))}</div>`;
-        list.insertAdjacentHTML("beforeend", r.results.map(row).join(""));
-        next = r.next; $("#jmMore", el).classList.toggle("hidden", r.next == null);
-        bindRows();
-      } catch (e) { list.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
-    };
-    const bindRows = () => {
-      el.querySelectorAll(".jmPlay").forEach(b => b.onclick = () => {
-        const id = b.dataset.id;
-        if (playing === id && !audio.paused) { audio.pause(); return; }
-        if (playing && playing !== id) setBtn(playing, false);
-        playing = id; audio.src = api.jamendoPreview(id); audio.play().catch(e => toast(e.message));
-      });
-      el.querySelectorAll(".jmUse").forEach(b => b.onclick = async () => {
-        const id = b.dataset.id, title = b.closest(".jm").querySelector(".t").textContent;
-        if ($("#upKey")) api.setKey($("#upKey").value);
-        el.querySelectorAll(".jmUse").forEach(x => x.disabled = true);
-        b.textContent = t("jm_importing");
-        try { await api.jamendoImport(id, getLang()); audio.pause(); close(); toast(t("jm_added", { t: title }), 3000); route(); }
-        catch (e) { toast(e.message, 4000); b.textContent = t("jm_use"); el.querySelectorAll(".jmUse").forEach(x => x.disabled = false); }
-      });
-    };
-    $("#jmForm", el).onsubmit = ev => { ev.preventDefault(); q = $("#jmQ", el).value.trim(); $("#jmHead", el).textContent = q ? "" : t("jm_popular"); $("#jmQ", el).blur(); load(false); };
-    $("#jmMore", el).onclick = () => load(true);
-    load(false);
-  });
-}
-
 function panel(html, bind) {
   const scrim = document.createElement("div"); scrim.className = "scrim";
   const p = document.createElement("div"); p.className = "sheetpanel"; p.innerHTML = html;
@@ -415,6 +443,11 @@ async function playerView(id, view, q) {
   const player = new Player();
   let sync = null;
   window.__jam = { player, S, get sync() { return sync; }, errors };
+  // 热度: one play per opened song, counted when playback really starts or a jam starts/joins
+  // (the server also ignores the same browser session within 30 s, so a reload does not double it).
+  let counted = false;
+  const countPlay = why => { if (counted || isStatic) return; counted = true; S.playCount = why; api.play(id).catch(() => { counted = false; }); };
+  player.addEventListener("state", () => { if (player.playing) countPlay("play"); });
   onCleanup(() => { player.unload(); sync && sync.close(); delete window.__jam; });
 
   try { S.song = await api.song(id); } catch (e) { app.innerHTML = `<div class="lib"><div class="card err">${esc(e.message)}</div><button onclick="location.hash='#/'">${esc(t("back"))}</button></div>`; return; }
@@ -692,6 +725,7 @@ async function playerView(id, view, q) {
     } else {
       sync.addEventListener("state", e => applyRemoteState(e.detail));
     }
+    countPlay("jam");
     const nh = `#/s/${id}${view === "stage" ? "/stage" : ""}?room=${room}&role=${asRole}`;
     history.replaceState(null, "", nh);
   }

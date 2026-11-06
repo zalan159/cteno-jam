@@ -5,6 +5,7 @@
 
 Serves /v3.0/tracks/ with the bundled CC0 demo songs as "downloadable" tracks plus one track whose
 artist does not allow downloads (it must never show up in Jam), and the audio behind /stream and /dl.
+Each track has a listen count (include=stats -> stats.rate_listened_total); order=popularity_total sorts by it.
 Start the Jam server with JAM_JAMENDO_CLIENT_ID=e2e JAM_JAMENDO_API_URL=http://127.0.0.1:<port>/v3.0.
 """
 import json
@@ -17,11 +18,16 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8782
 DEMO = sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.path.dirname(__file__), "..", "demo", "source")
 TRACKS = [
     {"id": "900001", "name": "Twinkle Twinkle (e2e)", "artist_name": "Cteno Demo Band", "album_name": "Nursery", "file": "twinkle.mp3",
-     "duration": 65, "audiodownload_allowed": True, "license_ccurl": "http://creativecommons.org/licenses/by-sa/3.0/"},
+     "duration": 65, "audiodownload_allowed": True, "license_ccurl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "listens": 1234567},
+    {"id": "900004", "name": "Twinkle Lullaby (e2e)", "artist_name": "Quiet Band", "album_name": "Night", "file": "twinkle.mp3",
+     "duration": 65, "audiodownload_allowed": True, "license_ccurl": "http://creativecommons.org/licenses/by/4.0/", "listens": 800},
     {"id": "900002", "name": "Frère Jacques (e2e)", "artist_name": "Cteno Demo Band", "album_name": "Nursery", "file": "frere-jacques.mp3",
-     "duration": 60, "audiodownload_allowed": True, "license_ccurl": "http://creativecommons.org/licenses/by-nc/3.0/"},
+     "duration": 60, "audiodownload_allowed": True, "license_ccurl": "http://creativecommons.org/licenses/by-nc/3.0/",
+     "listens": 12345},
     {"id": "900003", "name": "Locked Track (must not appear)", "artist_name": "No Downloads", "album_name": "", "file": "twinkle.mp3",
-     "duration": 65, "audiodownload_allowed": False, "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/"},
+     "duration": 65, "audiodownload_allowed": False, "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
+     "listens": 99999999},
 ]
 
 
@@ -38,9 +44,13 @@ class H(BaseHTTPRequestHandler):
             if q.get("search"):
                 s = q["search"].lower()
                 rows = [t for t in rows if s in (t["name"] + " " + t["artist_name"]).lower()]
+            if q.get("order") == "popularity_total":
+                rows = sorted(rows, key=lambda t: -t["listens"])   # like Jamendo: most popular first
             res = []
             for t in rows:
-                r = {k: v for k, v in t.items() if k != "file"}
+                r = {k: v for k, v in t.items() if k not in ("file", "listens")}
+                if "stats" in q.get("include", ""):
+                    r["stats"] = {"rate_listened_total": t["listens"], "rate_downloads_total": t["listens"] // 2}
                 r.update(image="", shareurl="https://www.jamendo.com/track/%s" % t["id"],
                          audio="%s/stream/%s.mp3?client_id=%s" % (base, t["id"], q.get("client_id", "")),
                          audiodownload=("%s/dl/%s.mp3?client_id=%s" % (base, t["id"], q.get("client_id", "")))

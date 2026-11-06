@@ -61,17 +61,24 @@ def view(t: Dict) -> Dict:
     return {"id": str(t.get("id")), "title": t.get("name") or "", "artist": t.get("artist_name") or "",
             "album": t.get("album_name") or "", "duration": t.get("duration") or 0,
             "image": t.get("image") or t.get("album_image") or "", "license": license_name(lic),
-            "license_url": lic, "page": t.get("shareurl") or ""}
+            "license_url": lic, "page": t.get("shareurl") or "", "listens": listens(t)}
+
+
+def listens(t: Dict) -> int:
+    """Jamendo's all-time listen counter (include=stats -> stats.rate_listened_total); 0 when absent."""
+    try:
+        return max(0, int((t.get("stats") or {}).get("rate_listened_total") or 0))
+    except (TypeError, ValueError):
+        return 0
 
 
 def search(cfg, q: str = "", offset: int = 0, limit: int = 20) -> Dict:
     # The API has no "downloadable only" filter; we drop the others below, so a page may hold fewer.
-    params = {"limit": max(1, min(limit, 50)), "offset": max(0, offset), "include": "licenses", "fullcount": "true",
-              "audioformat": "mp31", "audiodlformat": "mp32", "imagesize": 100}
+    # Most popular first, all time: the order the mixed search list keeps for Jamendo results.
+    params = {"limit": max(1, min(limit, 50)), "offset": max(0, offset), "include": "licenses stats", "fullcount": "true",
+              "audioformat": "mp31", "audiodlformat": "mp32", "imagesize": 100, "order": "popularity_total"}
     if q.strip():
         params["search"] = q.strip()[:100]
-    else:
-        params["order"] = "popularity_week"
     body = _get(cfg, "/tracks/", params)
     out: List[Dict] = []
     now = time.time()

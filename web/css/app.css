@@ -234,18 +234,16 @@ footer.ctl{background:var(--panel);padding:8px 12px calc(10px + var(--safe-b));b
 .recBtns{justify-content:center;width:100%}
 .recBtns button{min-height:52px;font-size:17px;padding:0 20px;display:inline-flex;align-items:center;gap:8px}
 .recGo .dot{width:12px;height:12px;border-radius:3px;background:var(--err)}
-.jmq{flex-wrap:nowrap}
-.jmq input{flex:1;min-width:0}
-.jmHead{font-size:13px;margin:10px 0 2px}
-.jmList{display:grid;gap:2px}
-.jm{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);min-width:0}
-.jmArt{width:44px;height:44px;border-radius:8px;flex:none;object-fit:cover}
-.jmInfo{flex:1;min-width:0}
-.jmInfo .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.jmInfo .m{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .jmLic{color:#bfe3c9}
-.jm button{flex:none;min-height:38px;padding:2px 10px;font-size:14px}
-.jmPlay{width:40px;padding:0!important}
-.jmPlay.on{background:#2b3a52;border-color:#4fd1ff}
-.jmMore{width:100%;margin-top:8px}
-.jmFoot{font-size:12px;margin:10px 0 0}
+
+/* mixed search list: local songs + Jamendo results, popularity and source on one line */
+.song .src-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap;white-space:normal}
+.song .src-line .badge{margin-left:0;text-decoration:none}
+.plays{font-variant-numeric:tabular-nums;color:#ffd38a;font-weight:600;font-size:12px;white-space:nowrap}
+.badge.srcb.localb{background:#24303f;color:#bcd}
+.badge.srcb.jmb{background:#3a2a17;color:#ffcf9a}
+img.art{object-fit:cover}
+.song .acts .jmPlay{width:38px;padding:0}
+.song .acts .jmPlay.on{background:#2b3a52;border-color:#4fd1ff}
+.song.busy{opacity:.7}
+.jmNote{font-size:12px;text-align:center;margin:2px 0 4px}

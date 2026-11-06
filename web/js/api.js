@@ -68,6 +68,14 @@ export const api = {
     es.onmessage = e => { try { onSongs(JSON.parse(e.data).songs); } catch (_) {} };
     return () => es.close();
   },
+  // 热度: tell the server a play/jam started. The session id is per browser tab, so the server can
+  // ignore the same listener restarting the same song within 30 s.
+  play(id) {
+    if (isStatic) return Promise.resolve(null);
+    let s = sessionStorage.getItem("jam.session");
+    if (!s) { s = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, "0")).join(""); sessionStorage.setItem("jam.session", s); }
+    return j(`/api/songs/${id}/play`, { method: "POST", json: { session: s } });
+  },
   jamendoSearch(q, offset = 0) { return j(`/api/jamendo/search?q=${encodeURIComponent(q || "")}&offset=${offset || 0}`); },
   jamendoPreview(id) { return `/api/jamendo/preview/${encodeURIComponent(id)}.mp3`; },
   jamendoImport(id, lang) { return j("/api/jamendo/import", { method: "POST", json: { id, lang } }); },

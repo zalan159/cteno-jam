@@ -1,5 +1,5 @@
 // Phone audio sources: record in the browser, pick from Files / WeChat (no extension, odd types),
-// and the Jamendo free catalogue (search → preview → use, license shown). 390 px screenshots of all three.
+// and Jamendo results mixed into the library search by popularity (preview, use, license shown). 390 px screenshots.
 // The server must run with the fake Jamendo API (scripts/fake_jamendo.py) for the Jamendo part:
 //   JAM_JAMENDO_CLIENT_ID=e2e JAM_JAMENDO_API_URL=http://127.0.0.1:8782/v3.0
 import { test, expect } from "@playwright/test";
@@ -11,7 +11,7 @@ const DEMO = process.env.JAM_DEMO_DIR || "../demo/source";
 const AUDIO = path.join(DEMO, "twinkle.mp3");
 const log = [];
 const note = (step, data) => { const row = { t: new Date().toISOString(), step, ...data }; log.push(row); console.log(JSON.stringify(row)); };
-const shot = (page, name) => page.screenshot({ path: path.join(EVID, `${test.info().project.name}-${name}.png`) });
+const shot = (page, name, full = false) => page.screenshot({ path: path.join(EVID, `${test.info().project.name}-${name}.png`), fullPage: full });
 const ANDROID_WX = "Mozilla/5.0 (Linux; Android 14; V2309A Build/UP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/122.0.6261.120 Mobile Safari/537.36 XWEB/1220133 MMWEBSDK/20240404 MicroMessenger/8.0.49.2600(0x2800315A) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64";
 const IOS_WX = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.53(0x18003531) NetType/WIFI Language/zh_CN";
 
@@ -33,16 +33,17 @@ async function remove(request, id) { await request.delete(`/api/songs/${id}`).ca
 async function fitsPhone(page) {
   return page.evaluate(() => {
     const vw = document.documentElement.clientWidth;
-    const over = [...document.querySelectorAll("#drop, .src, .sheetpanel button, .jm, .rec button")]
+    const over = [...document.querySelectorAll("#drop, .src, .sheetpanel button, .song, .song button, .rec button")]
       .filter(e => e.offsetParent && e.getBoundingClientRect().right > vw + 1).map(e => e.id || e.className);
     return { vw, scrollW: document.documentElement.scrollWidth, over };
   });
 }
 
-test("entry points: record, files/WeChat tip and free music on the library page", async ({ page }, info) => {
+test("entry points: record and files/WeChat tip; no separate free-music button", async ({ page }, info) => {
   await page.goto("/?lang=zh");
   await expect(page.locator("#recBtn")).toBeVisible();
-  await expect(page.locator("#jmBtn")).toBeVisible();
+  await expect(page.locator("#jmBtn")).toHaveCount(0);           // Jamendo lives in the search box now
+  await expect(page.locator("#q")).toHaveAttribute("placeholder", /免费音乐/);
   const accept = await page.getAttribute("#file", "accept");
   note("entries", { proj: info.project.name, accept, vw: page.viewportSize().width });
   expect(accept).toContain("audio/*"); expect(accept).toContain(".amr"); expect(accept).toContain(".m4a");
@@ -53,19 +54,27 @@ test("entry points: record, files/WeChat tip and free music on the library page"
   await shot(page, "30-sources-zh");
   await page.goto("/?lang=en");
   await expect(page.locator("#recBtn")).toContainText("Record");
-  await expect(page.locator("#jmBtn")).toContainText("Free music");
+  await expect(page.locator("#q")).toHaveAttribute("placeholder", /free music/);
   expect((await fitsPhone(page)).over).toEqual([]);
   await shot(page, "31-sources-en");
 });
 
-test("Jamendo entry is hidden when the server has no client id", async ({ page }) => {
+test("no Jamendo client id: search only looks in the library, no errors", async ({ page }, info) => {
   await page.route("**/api/info", async route => {
     const r = await route.fetch(); const j = await r.json();
     await route.fulfill({ response: r, json: { ...j, jamendo: false } });
   });
-  await page.goto("/");
-  await expect(page.locator("#recBtn")).toBeVisible();
-  await expect(page.locator("#jmBtn")).toHaveCount(0);
+  const jmCalls = [];
+  page.on("request", r => { if (r.url().includes("/api/jamendo/")) jmCalls.push(r.url()); });
+  await page.goto("/?lang=zh");
+  await expect(page.locator("#q")).toHaveAttribute("placeholder", "搜索歌曲");
+  await page.fill("#q", "twinkle");
+  await page.waitForTimeout(1200);
+  expect(jmCalls).toEqual([]);
+  await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(0);
+  await expect(page.locator(".jmNote")).toHaveCount(0);
+  await expect(page.locator(".card.err")).toHaveCount(0);
+  note("no-jamendo", { proj: info.project.name, jmCalls: jmCalls.length, rows: await page.locator(".song").count() });
 });
 
 test("record in the browser → use it → it is processed like an upload", async ({ page, request, browserName }, info) => {
@@ -168,45 +177,93 @@ test("files from WeChat / Files: no extension, wrong kind, Android WeChat accept
   }
 });
 
-test("Jamendo: search → preview → use; only downloadable tracks; license kept", async ({ page, request }, info) => {
-  await page.goto("/?lang=zh");
-  await page.click("#jmBtn");
-  await expect(page.locator(".sheetpanel h3")).toHaveText("Jamendo 免费曲库");
-  await expect(page.locator(".jm").first()).toBeVisible();
-  const popular = await page.locator(".jm .t").allTextContents();
-  expect(popular.join("|")).not.toContain("Locked");
-  await page.fill("#jmQ", "twinkle");
-  await page.click("#jmGo");
-  await expect(page.locator(".jm")).toHaveCount(1);
-  await expect(page.locator(".jm .jmLic")).toHaveText("CC BY-SA 3.0");
-  await expect(page.locator(".jm .jmLic")).toHaveAttribute("href", /creativecommons\.org\/licenses\/by-sa/);
-  // preview plays through the server's proxy (the client id never reaches the page)
-  await page.locator(".jmPlay").first().click();
-  await page.waitForFunction(() => { const a = document.querySelector("#jmAudio"); return a && a.currentTime > 0.3; }, null, { timeout: 20_000 });
-  const src = await page.$eval("#jmAudio", a => a.currentSrc || a.src);
-  note("jamendo-preview", { proj: info.project.name, src, popular });
-  expect(src).toMatch(/\/api\/jamendo\/preview\/900001\.mp3$/);
-  await expect(page.locator(".jmPlay").first()).toHaveText("❚❚");
+// Mixed search: local songs and Jamendo results in one list, most popular first.
+// Fake Jamendo listens: Twinkle Twinkle 1,234,567 · Frère Jacques 12,345 · Twinkle Lullaby 800 (and a locked track).
+// Our local "Twinkle Star" gets 2 plays -> score 2 x 1000 = 2000, so the expected order for "twinkle" is
+// Twinkle Twinkle (Jamendo, 1.23M) > Twinkle Star (local, 2000) > Twinkle Lullaby (Jamendo, 800).
+test("search mixes the library with Jamendo by popularity; tap a result to use it; plays are counted", async ({ page, request }, info) => {
+  const lang = info.project.name.startsWith("webkit") ? "zh" : "en";   // 390 px shots in both languages
+  const title = `Twinkle Star local ${info.project.name}`;
+  const up = await request.post("/api/songs", { multipart: { file: { name: "twinkle.mp3", mimeType: "audio/mpeg", buffer: fs.readFileSync(AUDIO) }, title } });
+  expect(up.status(), await up.text()).toBe(201);
+  const local = await up.json();
+  expect((await waitProcessed(request, local.id)).status).toBe("ready");
+  for (const s of ["e2e-sess-aaaa", "e2e-sess-bbbb", "e2e-sess-bbbb"]) await request.post(`/api/songs/${local.id}/play`, { data: { session: s } });
+  expect((await (await request.get(`/api/songs/${local.id}`)).json()).plays).toBe(2);    // the repeat within 30 s is not counted
+
+  await page.goto(`/?lang=${lang}`);
+  await page.fill("#q", "twinkle");
+  await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(2);
+  const rows = await page.evaluate(() => window.__jamList);
+  note("mixed", { proj: info.project.name, rows });
+  expect(rows.map(r => r.title)).toEqual(["Twinkle Twinkle (e2e)", title, "Twinkle Lullaby (e2e)"]);
+  expect(rows.map(r => r.kind)).toEqual(["jamendo", "local", "jamendo"]);
+  expect(rows.map(r => r.title).join("|")).not.toContain("Locked");
+  const first = page.locator(".song").nth(0), second = page.locator(".song").nth(1);
+  await expect(first.locator(".plays")).toHaveText(lang === "zh" ? "▶ 123万" : "▶ 1.2M");
+  await expect(first.locator(".badge.srcb")).toHaveText("Jamendo");
+  await expect(first.locator(".badge.lic")).toHaveText("CC BY-SA 3.0");
+  await expect(first.locator(".badge.lic")).toHaveAttribute("href", /creativecommons\.org\/licenses\/by-sa/);
+  await expect(second.locator(".plays")).toHaveText("▶ 2");
+  await expect(second.locator(".badge.srcb")).toHaveText(lang === "zh" ? "曲库" : "Library");
+  await expect(page.locator(".song").nth(2).locator(".plays")).toHaveText("▶ 800");
   expect((await fitsPhone(page)).over).toEqual([]);
-  await shot(page, "36-jamendo");
-  await page.fill("#jmQ", "locked");
-  await page.click("#jmGo");
-  await expect(page.locator("#jmList")).toContainText("没找到");
-  await page.fill("#jmQ", "twinkle");
-  await page.click("#jmGo");
-  await page.locator(".jmUse").first().click();
-  await expect(page.locator(".sheetpanel")).toHaveCount(0);
-  const row = page.locator(".song", { hasText: "Twinkle Twinkle (e2e)" }).first();
-  await expect(row).toBeVisible();
-  await expect(row.locator(".badge.lic")).toHaveText("CC BY-SA 3.0");
-  await shot(page, "37-jamendo-added");
+  // preview plays through the server's proxy (the client id never reaches the page)
+  await first.locator(".jmPlay").click();
+  await page.waitForFunction(() => window.__jamPreview && window.__jamPreview.currentTime > 0.3, null, { timeout: 20_000 });
+  const src = await page.evaluate(() => window.__jamPreview.currentSrc || window.__jamPreview.src);
+  expect(src).toMatch(/\/api\/jamendo\/preview\/900001\.mp3$/);
+  await expect(first.locator(".jmPlay")).toHaveText("❚❚");
+  await shot(page, `38-search-mixed-${lang}`, true);
+  await first.locator(".jmPlay").click();
+
+  // a word Jamendo only has a locked track for: library-only "nothing found", no error
+  await page.fill("#q", "locked");
+  await expect(page.locator(".card.muted")).toBeVisible();
+  await expect(page.locator(".song")).toHaveCount(0);
+
+  // tap the Jamendo row itself: it is imported and then lives in the library with its license
+  await page.fill("#q", "twinkle");
+  await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(2);
+  await page.locator(".song").nth(0).locator(".info").click();
+  const imported = page.locator('.song[data-kind="local"]', { hasText: "Twinkle Twinkle (e2e)" });
+  await expect(imported).toBeVisible();
+  await expect(imported.locator(".badge.lic")).toHaveText("CC BY-SA 3.0");
+  await expect(imported.locator(".badge.srcb")).toHaveText(lang === "zh" ? "曲库 · Jamendo" : "Library · Jamendo");
+  await expect(page.locator('.song[data-kind="jamendo"]', { hasText: "Twinkle Twinkle (e2e)" })).toHaveCount(0);   // shown once
   const s = (await (await request.get("/api/songs?q=" + encodeURIComponent("Twinkle Twinkle (e2e)"))).json()).songs[0];
   const m = await waitProcessed(request, s.id);
-  const song = await (await request.get(`/api/songs/${s.id}/song.json`)).json();
-  note("jamendo-import", { proj: info.project.name, id: s.id, status: m.status, license: m.license, source: m.source, key: song.analysis && song.analysis.key, seconds: m.seconds });
   expect(m.status, m.error || "").toBe("ready");
-  expect(m.license).toBe("CC BY-SA 3.0");
-  expect(m.source.kind).toBe("jamendo");
-  expect(song.analysis.key).toBe("D major");
-  await remove(request, s.id);
+  expect(m.license).toBe("CC BY-SA 3.0"); expect(m.source.kind).toBe("jamendo");
+  const again = await request.post("/api/jamendo/import", { data: { id: "900001" } });
+  expect(again.status()).toBe(200); expect((await again.json()).id).toBe(s.id);    // no second copy
+
+  // open it, press play: one play is counted; play/pause again in the same tab is not counted again
+  await page.goto(`/?lang=${lang}#/s/${s.id}`);
+  await expect(page.locator("#play")).toBeEnabled({ timeout: 120_000 });
+  await page.click("#play");
+  await page.waitForFunction(() => window.__jam && window.__jam.player.playing);
+  await expect.poll(async () => (await (await request.get(`/api/songs/${s.id}`)).json()).plays).toBe(1);
+  await page.click("#play"); await page.click("#play");
+  await page.waitForTimeout(800);
+  expect((await (await request.get(`/api/songs/${s.id}`)).json()).plays).toBe(1);
+  // starting a jam (share) in a fresh page of the same session within 30 s: still 1
+  await page.reload();
+  await expect(page.locator("#play")).toBeEnabled({ timeout: 120_000 });
+  await page.click("#shareBtn");
+  await page.waitForTimeout(800);
+  const after = (await (await request.get(`/api/songs/${s.id}`)).json()).plays;
+  note("plays", { proj: info.project.name, id: s.id, plays: after, why: await page.evaluate(() => window.__jam.S.playCount) });
+  expect(after).toBe(1);
+
+  // library (no query): sorted by plays, with the counts shown
+  await page.goto(`/?lang=${lang}`);
+  await expect(page.locator(".song").first()).toBeVisible();
+  const lib = await page.evaluate(() => window.__jamList.map(r => [r.title, r.plays]));
+  note("library-order", { proj: info.project.name, lib });
+  const counts = lib.map(r => r[1]);
+  expect(counts).toEqual([...counts].sort((a, b) => b - a));
+  expect(lib[0]).toEqual([title, 2]);
+  await shot(page, `39-library-plays-${lang}`, true);
+  await remove(request, s.id); await remove(request, local.id);
 });

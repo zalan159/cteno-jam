@@ -107,16 +107,39 @@ class Store:
             return m
 
     def list(self) -> List[Dict]:
+        """Every song, most played first (equal counts: newest first). `plays` is filled in from plays.json."""
         out = []
+        plays = self.plays()
         for d in self.root.iterdir():
             m = read_json(d / "meta.json") if d.is_dir() else None
             if m:
+                m["plays"] = int(plays.get(m.get("id"), 0))
                 out.append(m)
-        return sorted(out, key=lambda m: -m.get("created", 0))
+        return sorted(out, key=lambda m: (-m["plays"], -m.get("created", 0)))
+
+    # ---------------------------------------------------------------- play counts ("热度")
+    # Kept in one small file next to the songs, not in meta.json: a play must not bump "updated", rewrite
+    # song.json or race with a running job writing progress into meta.json.
+    def _plays_path(self) -> Path:
+        return self.root / ".plays.json"
+
+    def plays(self) -> Dict[str, int]:
+        return read_json(self._plays_path(), {}) or {}
+
+    def add_play(self, sid: str) -> int:
+        with _lock:
+            self.dir(sid)                      # NotFound for unknown ids
+            p = self.plays()
+            p[sid] = int(p.get(sid, 0)) + 1
+            write_json(self._plays_path(), p)
+            return p[sid]
 
     def delete(self, sid: str) -> None:
         with _lock:
             d = self.dir(sid)
+            p = self.plays()
+            if p.pop(sid, None) is not None:
+                write_json(self._plays_path(), p)
             trash = self.root / (".trash-%s-%s" % (sid, secrets.token_hex(3)))
             os.replace(d, trash)
         shutil.rmtree(trash, ignore_errors=True)
@@ -187,5 +210,5 @@ class Store:
 
 def public_meta(m: Dict) -> Dict:
     keep = ("id", "title", "artist", "created", "updated", "status", "stage", "progress", "error", "duration",
-            "demo", "ai", "lyrics_source", "attempts", "timings", "stems", "device", "license", "license_url", "source", "lang")
+            "demo", "ai", "lyrics_source", "attempts", "timings", "stems", "device", "license", "license_url", "source", "lang", "plays")
     return {k: m.get(k) for k in keep if k in m}

@@ -12,7 +12,9 @@
     POST   /api/songs/{id}/edits             {"patches":[...]} human edits (validated like AI patches)
     POST   /api/songs/{id}/revisions         {"ids":[...]|"all", "source":"ai", "status":"applied|reverted"}
     POST   /api/songs/{id}/review            (re)run AI review
-    GET    /api/jamendo/search?q=&offset=    Jamendo free catalogue, downloadable tracks only (JAM_JAMENDO_CLIENT_ID)
+    POST   /api/songs/{id}/play              {"session"} count a play/jam start (once per session+song per 30 s)
+    GET    /api/jamendo/search?q=&offset=    Jamendo free catalogue, downloadable tracks only, most popular first
+                                             (order=popularity_total; each result carries `listens`) (JAM_JAMENDO_CLIENT_ID)
     GET    /api/jamendo/preview/{tid}.mp3    preview stream proxied through the server (client id stays private)
     POST   /api/jamendo/import               {"id","lang"} download the track and queue it, keeping its license
     GET    /api/events                       Server-Sent Events: library changes (progress)
@@ -46,6 +48,7 @@ log = logging.getLogger("cteno_jam.app")
 NOT_AUDIO_EXT = {".exe", ".apk", ".zip", ".rar", ".7z", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt",
                  ".jpg", ".jpeg", ".png", ".gif", ".heic", ".webp", ".html", ".js", ".sh", ".bat", ".dmg", ".mov", ".avi", ".mkv"}
 STEM_RE = re.compile(r"^(vocals|guitar|piano|bass|drums|other|mix)$")
+PLAY_DEDUP_S = 30  # one browser session starting the same song again within this window is one play
 
 
 def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) -> FastAPI:
@@ -249,6 +252,13 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         lang = str(body.get("lang") or "")
         if not re.match(r"^\d{1,12}$", tid):
             raise HTTPException(400, "bad track id")
+        # Tapping a search result that is already in the library just opens that copy (no second download).
+        for m in st.list():
+            if (m.get("source") or {}).get("kind") == "jamendo" and str(m["source"].get("id")) == tid and m.get("status") != "failed":
+                out = store.public_meta(m)
+                if out["status"] == "queued":
+                    out["queue_position"] = jobs.position(m["id"])
+                return JSONResponse({**out, "existing": True}, status_code=200)
         try:
             t = await asyncio.to_thread(jamendo.track, cfg, tid)
         except jamendo.JamendoError as e:
@@ -288,7 +298,7 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
 
     @app.get("/api/songs/{sid}")
     def get_song_meta(sid: str):
-        m = store.public_meta(meta_or_404(sid))
+        m = store.public_meta({**meta_or_404(sid), "plays": int(st.plays().get(sid, 0))})
         if m["status"] == "queued":
             m["queue_position"] = jobs.position(sid)
         return m
@@ -321,6 +331,31 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         if st.original(sid) is None:
             raise HTTPException(409, "the original upload is gone; upload the file again")
         return {"queue_position": jobs.submit(sid)}
+
+    recent_plays: dict = {}  # (who, song) -> time of the last counted play
+
+    @app.post("/api/songs/{sid}/play")
+    async def count_play(sid: str, request: Request):
+        """A listener really started playback, or joined/started a jam. No passphrase: anyone may listen.
+        The same session (or, without one, the same IP) starting the same song again within 30 s counts once."""
+        m = meta_or_404(sid)
+        if m.get("status") != "ready":
+            raise HTTPException(409, "the song is not ready yet")
+        try:
+            body = await request.json()
+        except ValueError:
+            body = {}
+        sess = str((body or {}).get("session") or "")[:64] if isinstance(body, dict) else ""
+        who = "s:" + sess if re.match(r"^[A-Za-z0-9_-]{8,64}$", sess) else "ip:" + client_ip(request)
+        now = time.time()
+        if len(recent_plays) > 5000:
+            for k in [k for k, t in recent_plays.items() if now - t >= PLAY_DEDUP_S]:
+                recent_plays.pop(k, None)
+        last = recent_plays.get((who, sid))
+        if last is not None and now - last < PLAY_DEDUP_S:
+            return {"plays": int(st.plays().get(sid, 0)), "counted": False}
+        recent_plays[(who, sid)] = now
+        return {"plays": st.add_play(sid), "counted": True}
 
     @app.get("/api/songs/{sid}/song.json")
     def song_json(sid: str):
@@ -393,7 +428,7 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
             last = None
             idle = 0
             while not await request.is_disconnected():
-                snap = [(m["id"], m.get("updated"), m.get("status"), m.get("progress"), (m.get("ai") or {}).get("status"),
+                snap = [(m["id"], m.get("updated"), m.get("status"), m.get("progress"), (m.get("ai") or {}).get("status"), m.get("plays"),
                          jobs.position(m["id"]) if m.get("status") == "queued" else 0) for m in st.list()]
                 if snap != last:
                     last = snap
