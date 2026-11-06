@@ -43,7 +43,7 @@ test("upload → process → play → share → big screen → remote", async ({
   await page.setInputFiles("#file", AUDIO);
   await page.fill("#upTitle", title);
   await page.fill("#upArtist", "Traditional");
-  await page.locator("details summary").click();
+  await page.locator("#upLyricsBox summary").click();
   await page.fill("#upLyrics", LRC);
   await page.click("#upGo");
   const row = page.locator(".song", { hasText: title });

@@ -3,6 +3,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const EVID = process.env.JAM_EVIDENCE || "../docs/evidence/e2e";
+// Chromium: a fake microphone (a beep) so the in-browser recording can be tested end to end.
+const CHROMIUM_ARGS = ["--autoplay-policy=no-user-gesture-required", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"];
 export default defineConfig({
   testDir: "./tests",
   timeout: 15 * 60_000,
@@ -22,7 +24,7 @@ export default defineConfig({
   },
   projects: [
     { name: "webkit-iphone", use: { ...devices["iPhone 13"], browserName: "webkit" } },
-    { name: "chromium-iphone", use: { ...devices["iPhone 13"], browserName: "chromium", launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] } } },
-    { name: "chromium-desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 860 }, launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] } } },
+    { name: "chromium-iphone", use: { ...devices["iPhone 13"], browserName: "chromium", launchOptions: { args: CHROMIUM_ARGS } } },
+    { name: "chromium-desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 860 }, launchOptions: { args: CHROMIUM_ARGS } } },
   ],
 });

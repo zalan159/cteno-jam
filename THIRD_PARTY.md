@@ -12,6 +12,12 @@ checked against each project's own repository or package metadata on 2026-11-01.
 | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4 | `web/vendor/qrcode.mjs` | MIT | QR codes for share links. "QR Code" is a registered trademark of DENSO WAVE INCORPORATED. |
 | Demo songs (`demo/`) | `demo/source`, `demo/songs` | **CC0 1.0** (our audio) on **public-domain** works | See *Demo content* below. |
 
+## Online services (optional)
+
+| Service | When | Terms |
+|---|---|---|
+| [Jamendo API](https://developer.jamendo.com/v3.0) | only with `JAM_JAMENDO_CLIENT_ID` set | Search/preview/download through the server. Jam shows and imports only tracks with `audiodownload_allowed`; each imported song keeps its Creative Commons license name and URL, the artist and the Jamendo page. Users must follow the track's license (many are NonCommercial / NoDerivatives). |
+
 ## Installed at build/run time (not vendored)
 
 | Component | License | Used for |

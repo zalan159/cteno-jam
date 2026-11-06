@@ -187,5 +187,5 @@ class Store:
 
 def public_meta(m: Dict) -> Dict:
     keep = ("id", "title", "artist", "created", "updated", "status", "stage", "progress", "error", "duration",
-            "demo", "ai", "lyrics_source", "attempts", "timings", "stems", "device", "license", "lang")
+            "demo", "ai", "lyrics_source", "attempts", "timings", "stems", "device", "license", "license_url", "source", "lang")
     return {k: m.get(k) for k in keep if k in m}

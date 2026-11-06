@@ -12,6 +12,9 @@
     POST   /api/songs/{id}/edits             {"patches":[...]} human edits (validated like AI patches)
     POST   /api/songs/{id}/revisions         {"ids":[...]|"all", "source":"ai", "status":"applied|reverted"}
     POST   /api/songs/{id}/review            (re)run AI review
+    GET    /api/jamendo/search?q=&offset=    Jamendo free catalogue, downloadable tracks only (JAM_JAMENDO_CLIENT_ID)
+    GET    /api/jamendo/preview/{tid}.mp3    preview stream proxied through the server (client id stays private)
+    POST   /api/jamendo/import               {"id","lang"} download the track and queue it, keeping its license
     GET    /api/events                       Server-Sent Events: library changes (progress)
     WS     /ws/room/{code}                   sync rooms (see rooms.py)
 """
@@ -32,13 +35,16 @@ from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, 
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__, config, patches as P, store
+from . import __version__, config, jamendo, patches as P, store
 from .jobs import JobQueue
 from .pipeline import drm
-from .pipeline.audio import ALLOWED_EXT
+from .pipeline.audio import ALLOWED_EXT, MIME_EXT, magic_ext
 from .rooms import Rooms, new_code
 
 log = logging.getLogger("cteno_jam.app")
+# a real extension that is never audio wins over whatever MIME type the browser sent
+NOT_AUDIO_EXT = {".exe", ".apk", ".zip", ".rar", ".7z", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt",
+                 ".jpg", ".jpeg", ".png", ".gif", ".heic", ".webp", ".html", ".js", ".sh", ".bat", ".dmg", ".mov", ".avi", ".mkv"}
 STEM_RE = re.compile(r"^(vocals|guitar|piano|bass|drums|other|mix)$")
 
 
@@ -112,7 +118,7 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         return {"name": "Cteno Jam", "version": __version__, "mode": cfg.mode, "upload": cfg.processing,
                 "needs_key": bool(cfg.admin_key), "public_url": cfg.public_url, "max_upload_mb": cfg.max_upload_mb,
                 "max_duration_s": cfg.max_duration_s, "formats": sorted(ALLOWED_EXT),
-                "encrypted_ext": drm.ENCRYPTED_EXT,
+                "encrypted_ext": drm.ENCRYPTED_EXT, "jamendo": cfg.jamendo,
                 "ai": {"configured": cfg.ai_configured, "model": cfg.ai_model if cfg.ai_configured else None},
                 "room": new_code()}
 
@@ -136,6 +142,17 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
             raise HTTPException(403, "this server is player-only (JAM_MODE=player); uploads are disabled")
         name = os.path.basename(file.filename or "upload")
         ext = os.path.splitext(name)[1].lower()
+        if ext not in ALLOWED_EXT and not drm.family_from_name(name):
+            # in-browser recordings and phone pickers (WeChat, some Android file managers) can hand over
+            # "recording", "1730000000" or "Voice 11.06" with no usable extension; the MIME type still
+            # says what it is (ffmpeg checks the content later either way)
+            guess = None if ext in NOT_AUDIO_EXT else MIME_EXT.get((file.content_type or "").split(";")[0].strip().lower())
+            if not guess and ext not in NOT_AUDIO_EXT and (not ext or not re.match(r"^\.[a-z][a-z0-9]{0,4}$", ext)):
+                # no extension and no type at all (WeChat on Android): look at the first bytes
+                guess = magic_ext(await file.read(64))
+                await file.seek(0)
+            if guess:
+                name, ext = name + guess, guess
         from .review import norm_lang
         fam = drm.family_from_name(ext)  # a .mgg2/.ncm/... ending; "x.mgg2.flac" is judged by its content below
         if fam:
@@ -161,17 +178,113 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         except HTTPException:
             st.delete(m["id"])
             raise
+        return accept(request, m["id"], dest, name, size, lang)
+
+    def accept(request: Request, sid: str, dest: Path, name: str, size: int, lang: str):
+        """The file is on disk: refuse empty/encrypted files, else queue it. Shared by upload and Jamendo import."""
+        from .review import norm_lang
         if size == 0:
-            st.delete(m["id"])
+            st.delete(sid)
             raise HTTPException(400, "empty file")
         fam = drm.sniff(dest, name)
         if fam:  # encrypted music-app download renamed to .mp3/.flac: refuse it now, not after queueing
-            st.delete(m["id"])
+            st.delete(sid)
             refund(request)
             raise HTTPException(415, drm.message(fam, norm_lang(lang)))
-        st.update(m["id"], size=size)
-        pos = jobs.submit(m["id"])
-        return {**store.public_meta(st.meta(m["id"])), "queue_position": pos}
+        st.update(sid, size=size)
+        pos = jobs.submit(sid)
+        return {**store.public_meta(st.meta(sid)), "queue_position": pos}
+
+    # ---------------------------------------------------------------- Jamendo (optional free catalogue)
+    def jamendo_on():
+        if not cfg.jamendo:
+            raise HTTPException(404, "Jamendo search is not enabled on this server (JAM_JAMENDO_CLIENT_ID)")
+
+    @app.get("/api/jamendo/search")
+    def jamendo_search(q: str = "", offset: int = 0):
+        jamendo_on()
+        try:
+            return jamendo.search(cfg, q, offset)
+        except jamendo.JamendoError as e:
+            raise HTTPException(502, str(e))
+
+    @app.get("/api/jamendo/preview/{tid}.mp3")
+    def jamendo_preview(tid: str, request: Request):
+        """Stream the low-bitrate preview through us, so the client id in Jamendo's URL stays private."""
+        jamendo_on()
+        if not re.match(r"^\d{1,12}$", tid):
+            raise HTTPException(404)
+        try:
+            url = jamendo.preview_url(cfg, tid)
+        except jamendo.JamendoError as e:
+            raise HTTPException(502, str(e))
+        if not url:
+            raise HTTPException(404, "no such downloadable track")
+        hdr = {"Range": request.headers["range"]} if request.headers.get("range") else {}
+        try:
+            r = jamendo.open_url(url, hdr)
+        except Exception as e:  # noqa: BLE001 — HTTPError 416 etc.
+            raise HTTPException(getattr(e, "code", 502) if getattr(e, "code", 0) in (404, 416) else 502, "preview not available")
+        out = {k: r.headers[k] for k in ("Content-Length", "Content-Range", "Accept-Ranges") if r.headers.get(k)}
+        out["Cache-Control"] = "public, max-age=3600"
+
+        def gen():
+            try:
+                while True:
+                    b = r.read(64 * 1024)
+                    if not b:
+                        break
+                    yield b
+            finally:
+                r.close()
+        return StreamingResponse(gen(), status_code=r.status, media_type="audio/mpeg", headers=out)
+
+    @app.post("/api/jamendo/import", status_code=201)
+    async def jamendo_import(request: Request, x_jam_key: Optional[str] = Header(None)):
+        """Download a track the artist allows downloading and queue it like an upload, keeping its license."""
+        guard(x_jam_key)
+        jamendo_on()
+        body = await request.json()
+        tid = str(body.get("id") or "")
+        lang = str(body.get("lang") or "")
+        if not re.match(r"^\d{1,12}$", tid):
+            raise HTTPException(400, "bad track id")
+        try:
+            t = await asyncio.to_thread(jamendo.track, cfg, tid)
+        except jamendo.JamendoError as e:
+            raise HTTPException(502, str(e))
+        if not t:
+            raise HTTPException(404, "this track does not exist or its artist does not allow downloads")
+        v = jamendo.view(t)
+        upload_guards(request)
+        from .review import norm_lang
+        m = st.create(v["title"] or "Jamendo %s" % tid, v["artist"], "jamendo-%s.mp3" % tid, lang=norm_lang(lang) or "")
+        st.update(m["id"], license=v["license"], license_url=v["license_url"],
+                  source={"kind": "jamendo", "id": tid, "page": v["page"], "artist": v["artist"], "album": v["album"]})
+        dest = st.dir(m["id"]) / "original.mp3"
+        limit = cfg.max_upload_mb * 1024 * 1024
+
+        def fetch() -> int:
+            size = 0
+            with jamendo.open_url(t["audiodownload"], timeout=60) as r, open(dest, "wb") as f:
+                while True:
+                    b = r.read(1 << 20)
+                    if not b:
+                        return size
+                    size += len(b)
+                    if size > limit:
+                        raise HTTPException(413, "file larger than %d MB" % cfg.max_upload_mb)
+                    f.write(b)
+        try:
+            size = await asyncio.to_thread(fetch)
+        except HTTPException:
+            st.delete(m["id"]); refund(request)
+            raise
+        except Exception as e:  # noqa: BLE001 — network error mid-download
+            st.delete(m["id"]); refund(request)
+            log.info("jamendo download %s failed: %s", tid, type(e).__name__)
+            raise HTTPException(502, "could not download the track from Jamendo; try again")
+        return accept(request, m["id"], dest, "jamendo-%s.mp3" % tid, size, lang)
 
     @app.get("/api/songs/{sid}")
     def get_song_meta(sid: str):

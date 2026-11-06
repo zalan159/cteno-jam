@@ -46,6 +46,9 @@ class Config:
     rate_limit_private: bool = field(default_factory=lambda: _bool("JAM_RATE_LIMIT_PRIVATE", False))  # LAN clients exempt by default
     max_disk_percent: int = field(default_factory=lambda: _int("JAM_MAX_DISK_PERCENT", 0))   # refuse uploads above this
     public_url: str = field(default_factory=lambda: os.environ.get("JAM_PUBLIC_URL", ""))
+    # Jamendo free-music search/import (optional): the client id stays on the server; empty hides the feature
+    jamendo_client_id: str = field(default_factory=lambda: os.environ.get("JAM_JAMENDO_CLIENT_ID", "").strip())
+    jamendo_api_url: str = field(default_factory=lambda: os.environ.get("JAM_JAMENDO_API_URL", "https://api.jamendo.com/v3.0"))
 
     # AI review (optional): any OpenAI/Anthropic/Gemini-compatible endpoint via the Cteno SDK
     ai_enabled: bool = field(default_factory=lambda: _bool("JAM_AI_REVIEW", True))
@@ -67,6 +70,10 @@ class Config:
     @property
     def processing(self) -> bool:
         return self.mode == "full"
+
+    @property
+    def jamendo(self) -> bool:
+        return self.processing and bool(self.jamendo_client_id)
 
 
 _cfg: Config | None = None

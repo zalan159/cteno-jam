@@ -212,3 +212,40 @@ footer.ctl{background:var(--panel);padding:8px 12px calc(10px + var(--safe-b));b
   .cur{font-size:52px}
 }
 @media (max-width:899px){ .player .main{display:contents} }
+
+/* ---------- more ways to add a song (record, Jamendo, WeChat/Files tips) */
+.srcs{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:12px}
+.srcs-or{font-size:13px;color:var(--dim)}
+.srcs-btns{display:flex;gap:10px;width:100%;justify-content:center;flex-wrap:wrap}
+.src{flex:1 1 0;max-width:220px;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;font-size:16px;font-weight:600;border-radius:12px;white-space:nowrap}
+.src svg{flex:none}
+.wxtip{margin-top:10px;font-size:13px}
+.wxtip summary{font-size:13px}
+.wxtip p{margin:6px 0 0;color:#aab;line-height:1.5}
+#upPreview{width:100%;height:40px}
+.badge.lic{background:#1f3326;color:#bfe3c9}
+.rec{display:flex;flex-direction:column;align-items:center;gap:10px;padding:6px 0}
+.recTime{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fg)}
+.rec.live .recTime{color:var(--err)}
+.meter{width:100%;height:8px;background:#2a2f3a;border-radius:4px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--sung);transition:width .08s}
+.recMsg{font-size:14px;text-align:center;line-height:1.5;min-height:21px}
+.rec audio{width:100%}
+.recBtns{justify-content:center;width:100%}
+.recBtns button{min-height:52px;font-size:17px;padding:0 20px;display:inline-flex;align-items:center;gap:8px}
+.recGo .dot{width:12px;height:12px;border-radius:3px;background:var(--err)}
+.jmq{flex-wrap:nowrap}
+.jmq input{flex:1;min-width:0}
+.jmHead{font-size:13px;margin:10px 0 2px}
+.jmList{display:grid;gap:2px}
+.jm{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);min-width:0}
+.jmArt{width:44px;height:44px;border-radius:8px;flex:none;object-fit:cover}
+.jmInfo{flex:1;min-width:0}
+.jmInfo .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jmInfo .m{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jmLic{color:#bfe3c9}
+.jm button{flex:none;min-height:38px;padding:2px 10px;font-size:14px}
+.jmPlay{width:40px;padding:0!important}
+.jmPlay.on{background:#2b3a52;border-color:#4fd1ff}
+.jmMore{width:100%;margin-top:8px}
+.jmFoot{font-size:12px;margin:10px 0 0}

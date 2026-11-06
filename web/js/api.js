@@ -41,7 +41,7 @@ export const api = {
   upload(file, fields, onProgress) {
     return new Promise((resolve, reject) => {
       const fd = new FormData();
-      fd.append("file", file, file.name);
+      fd.append("file", file, file.name || "recording");
       Object.entries(fields).forEach(([k, v]) => v && fd.append(k, v));
       const x = new XMLHttpRequest();
       x.open("POST", "/api/songs");
@@ -68,5 +68,8 @@ export const api = {
     es.onmessage = e => { try { onSongs(JSON.parse(e.data).songs); } catch (_) {} };
     return () => es.close();
   },
+  jamendoSearch(q, offset = 0) { return j(`/api/jamendo/search?q=${encodeURIComponent(q || "")}&offset=${offset || 0}`); },
+  jamendoPreview(id) { return `/api/jamendo/preview/${encodeURIComponent(id)}.mp3`; },
+  jamendoImport(id, lang) { return j("/api/jamendo/import", { method: "POST", json: { id, lang } }); },
   setKey(k) { localStorage.setItem("jam.key", k || ""); },
 };

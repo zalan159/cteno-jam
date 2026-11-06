@@ -6,7 +6,7 @@ import { Sync, randomRoom } from "./sync.js";
 import { buildChart, chartOptions, aiTouched, sectionAt, chordAt } from "./chart.js";
 import { diagramSVG } from "./diagrams.js";
 import { parseChord, transpose } from "./theory.js";
-import { encryptedFamily } from "./upload_check.js";
+import { encryptedFamily, acceptFor, isWeChat, checkPicked, pickRecordingType, extForType, micErrorKey } from "./upload_check.js";
 import qrcode from "../vendor/qrcode.mjs";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -104,7 +104,7 @@ async function libraryView(q) {
       return `<div class="song" data-id="${esc(m.id)}">
         <div class="art" style="background:hsl(${hue(m.id)} 70% 62%)">${esc((m.title || "?").trim()[0] || "?")}</div>
         <div class="info">
-          <div class="t">${esc(m.title)}${m.demo ? `<span class="badge">${esc(t("demo_badge"))}</span>` : ""}${ai}</div>
+          <div class="t">${esc(m.title)}${m.demo ? `<span class="badge">${esc(t("demo_badge"))}</span>` : ""}${!m.demo && m.license ? `<span class="badge lic" title="${esc(t("jm_license"))}">${esc(m.license)}</span>` : ""}${ai}</div>
           <div class="m ${m.status === "failed" ? "err" : ""}">${esc(m.artist ? m.artist + " · " : "")}${m.duration ? fmt(m.duration) + " · " : ""}${esc(stageLabel(m))}</div>
           ${m.status === "failed" && m.error ? `<div class="m err">${esc(m.error)}</div>` : ""}
           ${busy ? `<div class="prog"><i style="width:${Math.round((m.progress || 0) * 100)}%"></i></div>` : ""}
@@ -152,17 +152,31 @@ function songMenu(m) {
   });
 }
 
+const MIC_SVG = `<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>`;
+const NOTE_SVG = `<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>`;
+
 function uploadCard() {
+  const ua = navigator.userAgent, android = /Android/i.test(ua);
   return `<div class="card">
     <label class="drop" id="drop" role="button" tabindex="0" aria-label="${esc(t("upload_btn"))}">
-      <input type="file" id="file" class="vh" accept="audio/*,.mp3,.m4a,.wav,.flac,.aac,.ogg">
+      <input type="file" id="file" class="vh" accept="${esc(acceptFor(ua))}">
       <span class="upbtn" id="upBtn"><svg class="upic" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span id="upLabel">${esc(t("upload_btn"))}</span></span>
       <span class="uphint" id="upHint">${esc(t("upload_hint"))}</span>
       <span class="upfile hidden" id="upFile"></span></label>
+    <div class="srcs" id="srcs">
+      <span class="srcs-or">${esc(t("src_or"))}</span>
+      <div class="srcs-btns">
+        <button type="button" class="src" id="recBtn">${MIC_SVG}<span>${esc(t("src_record"))}</span></button>
+        ${INFO.jamendo ? `<button type="button" class="src" id="jmBtn">${NOTE_SVG}<span>${esc(t("src_jamendo"))}</span></button>` : ""}
+      </div>
+    </div>
+    <details class="wxtip" id="wxTip"${isWeChat(ua) ? " open" : ""}><summary>${esc(t("wx_tip_title"))}</summary>
+      <p>${esc(t(android ? "wx_tip_android" : "wx_tip_ios"))}</p>${isWeChat(ua) ? `<p>${esc(t("wx_tip_inwx"))}</p>` : ""}</details>
     <div class="form hidden" id="upForm">
+      <audio id="upPreview" class="hidden" controls preload="metadata"></audio>
       <input type="text" id="upTitle" placeholder="${esc(t("title"))}">
       <input type="text" id="upArtist" placeholder="${esc(t("artist"))}">
-      <details><summary>${esc(t("lyrics_opt"))}</summary><textarea id="upLyrics" rows="6" style="margin-top:8px"></textarea></details>
+      <details id="upLyricsBox"><summary>${esc(t("lyrics_opt"))}</summary><textarea id="upLyrics" rows="6" style="margin-top:8px"></textarea></details>
       ${INFO.needs_key ? `<input type="password" id="upKey" placeholder="${esc(t("passphrase"))}" value="${esc(localStorage.getItem("jam.key") || "")}">` : ""}
       <button class="primary" id="upGo">${esc(t("start_upload"))}</button>
       <div class="prog hidden" id="upProg"><i style="width:0"></i></div><div id="upMsg" class="muted"></div>
@@ -170,26 +184,39 @@ function uploadCard() {
 }
 function bindUpload() {
   const f = $("#file"), form = $("#upForm"), drop = $("#drop");
-  let file = null;
-  const pick = fl => {
+  let file = null, previewUrl = null;
+  const setPreview = blob => {
+    const a = $("#upPreview"); if (!a) return;
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+    if (blob) { previewUrl = URL.createObjectURL(blob); a.src = previewUrl; a.classList.remove("hidden"); }
+    else { a.removeAttribute("src"); a.classList.add("hidden"); }
+  };
+  onCleanup(() => previewUrl && URL.revokeObjectURL(previewUrl));
+  const refuse = msg => {
+    file = null; f.value = ""; form.classList.add("hidden"); setPreview(null);
+    $("#upFile").textContent = msg; $("#upFile").classList.add("err"); $("#upFile").classList.remove("hidden");
+  };
+  // fl: a File from the picker / a drop, or a recording. opts.recorded keeps the player visible.
+  const pick = (fl, opts = {}) => {
     if (!fl) return;
     $("#upFile").textContent = t("picked", { f: fl.name }); $("#upFile").classList.remove("hidden");
     const fam = encryptedFamily(fl.name);
-    if (fam) {  // encrypted music-app download: say so now instead of after the upload
-      file = null; f.value = ""; form.classList.add("hidden");
-      $("#upFile").textContent = t("enc_file", { app: t("app_" + fam) }); $("#upFile").classList.add("err");
-      return;
-    }
+    if (fam) return refuse(t("enc_file", { app: t("app_" + fam) }));  // encrypted music-app download: say so now
+    if (checkPicked(fl.name, fl.type) === "not_audio") return refuse(t("not_audio", { f: fl.name }));
     $("#upFile").classList.remove("err");
     file = fl; form.classList.remove("hidden");
     $("#upLabel").textContent = t("upload_change");
-    if (!$("#upTitle").value) $("#upTitle").value = fl.name.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ");
+    setPreview(opts.recorded ? fl : null);
+    if (!$("#upTitle").value || opts.recorded) $("#upTitle").value = opts.title || fl.name.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ");
+    $("#upMsg").textContent = ""; $("#upMsg").className = "muted";
   };
   f.onchange = () => pick(f.files[0]);
   ["dragenter", "dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
   ["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
   drop.addEventListener("drop", ev => pick(ev.dataTransfer.files[0]));
   drop.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); f.click(); } });
+  $("#recBtn").onclick = () => recordPanel((fl, title) => pick(fl, { recorded: true, title }));
+  if ($("#jmBtn")) $("#jmBtn").onclick = () => jamendoPanel();
   $("#upGo").onclick = async () => {
     if (!file) return;
     if ($("#upKey")) api.setKey($("#upKey").value);
@@ -204,11 +231,170 @@ function bindUpload() {
   };
 }
 
+// ------------------------------------------------------------------ record in the browser
+// MediaRecorder: iOS Safari gives AAC in MP4 (audio/mp4), Chrome/Android Opus in WebM. Either way the
+// result becomes a File and goes through the normal upload (the server measures streamed recordings).
+function recordPanel(onDone) {
+  const maxS = Math.min(INFO.max_duration_s || 900, 900);
+  panel(`<h3>${esc(t("rec_title"))}</h3>
+    <p class="muted" style="margin:0 0 10px;font-size:14px">${esc(t("rec_desc"))}</p>
+    <div class="rec" id="rec">
+      <div class="recTime" id="recTime">0:00</div>
+      <div class="meter"><i id="recLevel"></i></div>
+      <div id="recMsg" class="recMsg muted"></div>
+      <audio id="recPlay" class="hidden" controls></audio>
+      <div class="row recBtns">
+        <button class="primary recGo" id="recStart">${MIC_SVG}<span>${esc(t("rec_start"))}</span></button>
+        <button class="recGo hidden" id="recStop"><span class="dot"></span><span>${esc(t("rec_stop"))}</span></button>
+        <button class="hidden" id="recAgain">${esc(t("rec_again"))}</button>
+        <button class="primary hidden" id="recUse">${esc(t("rec_use"))}</button>
+      </div>
+      <button class="ghost" id="recCancel">${esc(t("rec_cancel"))}</button>
+    </div>`, (close, el) => {
+    let stream = null, rec = null, chunks = [], t0 = 0, timer = 0, blob = null, url = null, ac = null, raf = 0, dur = 0;
+    const R = window.__jamRec = { state: "idle", type: "", error: null, seconds: 0, size: 0 };
+    const msg = (text, err) => { $("#recMsg").textContent = text || ""; $("#recMsg").className = "recMsg " + (err ? "err" : "muted"); };
+    const show = (ids, on) => ids.forEach(id => $(id) && $(id).classList.toggle("hidden", !on));
+    const stopAll = () => {
+      clearInterval(timer); cancelAnimationFrame(raf);
+      if (rec && rec.state !== "inactive") { try { rec.stop(); } catch (e) {} }
+      if (stream) stream.getTracks().forEach(tr => tr.stop());
+      stream = null;
+      if (ac) { ac.close().catch(() => {}); ac = null; }
+      $("#recLevel") && ($("#recLevel").style.width = "0");
+    };
+    const prevSession = navigator.audioSession ? navigator.audioSession.type : null;
+    const setSession = ty => { try { if (navigator.audioSession && ty) navigator.audioSession.type = ty; } catch (e) {} };
+    const cleanupRec = () => { stopAll(); if (url) URL.revokeObjectURL(url); url = null; setSession(prevSession); };
+    const fail = (key, e) => { R.state = "error"; R.error = key; stopAll(); msg(t(key, { e: e && (e.message || e.name) || "" }), true); show(["#recStart"], true); show(["#recStop"], false); };
+    const meter = () => {
+      try {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        const an = ac.createAnalyser(); an.fftSize = 512; ac.createMediaStreamSource(stream).connect(an);
+        const buf = new Uint8Array(an.fftSize);
+        const tick = () => { an.getByteTimeDomainData(buf); let m = 0; for (const v of buf) m = Math.max(m, Math.abs(v - 128)); const el = $("#recLevel"); if (el) el.style.width = Math.min(100, m * 1.6) + "%"; raf = requestAnimationFrame(tick); };
+        tick();
+      } catch (e) {}
+    };
+    $("#recStart").onclick = async () => {
+      msg("");
+      if (!window.isSecureContext) return fail("rec_insecure");
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return fail("rec_unsupported");
+      // The player sets audioSession.type = "playback" (plays with the iPhone silent switch on); Safari
+      // refuses to capture in that category, so switch to play-and-record while the panel is open.
+      setSession("play-and-record");
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      } catch (e) { return fail(micErrorKey(e), e); }
+      const type = pickRecordingType(ty => MediaRecorder.isTypeSupported(ty));
+      try { rec = type ? new MediaRecorder(stream, { mimeType: type, audioBitsPerSecond: 128000 }) : new MediaRecorder(stream); }
+      catch (e) { try { rec = new MediaRecorder(stream); } catch (e2) { return fail("rec_failed", e2); } }
+      chunks = []; blob = null;
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onerror = e => fail("rec_failed", e.error || e);
+      rec.onstop = () => {
+        if (R.state === "error" || R.state === "cancelled") return;
+        dur = (performance.now() - t0) / 1000;
+        const ty = (rec.mimeType || type || (chunks[0] && chunks[0].type) || "audio/mp4").split(";")[0];
+        blob = new Blob(chunks, { type: ty });
+        Object.assign(R, { state: "done", type: ty, seconds: +dur.toFixed(1), size: blob.size });
+        if (url) URL.revokeObjectURL(url);
+        url = URL.createObjectURL(blob); $("#recPlay").src = url;
+        show(["#recPlay", "#recAgain"], true); show(["#recStop"], false);
+        if (dur < 5) { msg(t("rec_short", { s: dur.toFixed(1) }), true); show(["#recUse"], false); }
+        else { msg((dur >= maxS - 0.5 ? t("rec_max", { m: Math.round(maxS / 60) }) + " " : "") + t("rec_done", { t: fmt(dur) })); show(["#recUse"], true); }
+      };
+      rec.start(1000);  // timeslice: Safari otherwise keeps everything in one huge chunk
+      t0 = performance.now(); R.state = "recording"; R.type = rec.mimeType || type;
+      show(["#recStart", "#recPlay", "#recAgain", "#recUse"], false); show(["#recStop"], true);
+      $("#rec").classList.add("live");
+      timer = setInterval(() => {
+        const s = (performance.now() - t0) / 1000; R.seconds = +s.toFixed(1);
+        $("#recTime").textContent = fmt(s); msg(t("rec_live", { t: fmt(s) }));
+        if (s >= maxS) $("#recStop").click();
+      }, 250);
+      meter();
+    };
+    $("#recStop").onclick = () => { $("#rec").classList.remove("live"); stopAll(); };
+    $("#recAgain").onclick = () => { $("#recTime").textContent = "0:00"; $("#recStart").click(); };
+    $("#recUse").onclick = () => {
+      if (!blob) return;
+      const ext = extForType(blob.type), d = new Date();
+      const stamp = `${d.getMonth() + 1}-${d.getDate()} ${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
+      const name = `recording-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}.${ext}`;
+      let fl; try { fl = new File([blob], name, { type: blob.type }); } catch (e) { fl = blob; fl.name = name; }
+      R.state = "used"; cleanupRec(); close();
+      onDone(fl, t("rec_name", { d: stamp }));
+    };
+    $("#recCancel").onclick = () => close();
+    el.addEventListener("close", () => { if (R.state !== "used") R.state = "cancelled"; cleanupRec(); });
+  });
+}
+
+// ------------------------------------------------------------------ Jamendo free catalogue
+function jamendoPanel() {
+  panel(`<h3>${esc(t("jm_title"))}</h3>
+    <p class="muted" style="margin:0 0 10px;font-size:13px">${esc(t("jm_desc"))}</p>
+    <form class="row jmq" id="jmForm"><input type="search" id="jmQ" placeholder="${esc(t("jm_search"))}" autocomplete="off" enterkeyhint="search">
+      <button class="primary" id="jmGo">${esc(t("jm_go"))}</button></form>
+    <div class="muted jmHead" id="jmHead">${esc(t("jm_popular"))}</div>
+    <div class="jmList" id="jmList"></div>
+    <button class="hidden jmMore" id="jmMore">${esc(t("jm_more"))}</button>
+    <audio id="jmAudio" preload="none"></audio>
+    <p class="muted jmFoot">${esc(t("jm_from"))}</p>`, (close, el) => {
+    let q = "", next = 0, playing = null;
+    const audio = $("#jmAudio", el);
+    const setBtn = (id, on) => { const b = el.querySelector(`.jmPlay[data-id="${id}"]`); if (b) { b.textContent = on ? "❚❚" : "▶"; b.setAttribute("aria-label", t(on ? "jm_pause" : "jm_play")); b.classList.toggle("on", on); } };
+    audio.onended = audio.onpause = () => { if (playing) setBtn(playing, false); };
+    audio.onplay = () => playing && setBtn(playing, true);
+    el.addEventListener("close", () => { audio.pause(); audio.removeAttribute("src"); });
+    const row = r => `<div class="jm" data-id="${esc(r.id)}">
+      ${r.image ? `<img class="jmArt" src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="jmArt" style="background:hsl(${hue(r.id)} 60% 55%)"></div>`}
+      <div class="jmInfo"><div class="t">${esc(r.title)}</div>
+        <div class="m">${esc(r.artist)}${r.duration ? " · " + fmt(r.duration) : ""}</div>
+        <div class="m"><a class="jmLic" href="${esc(r.license_url || r.page)}" target="_blank" rel="noopener">${esc(r.license)}</a>${r.page ? ` · <a href="${esc(r.page)}" target="_blank" rel="noopener">Jamendo</a>` : ""}</div></div>
+      <button class="jmPlay" data-id="${esc(r.id)}" aria-label="${esc(t("jm_play"))}">▶</button>
+      <button class="primary jmUse" data-id="${esc(r.id)}">${esc(t("jm_use"))}</button></div>`;
+    const load = async (more) => {
+      const list = $("#jmList", el);
+      if (!more) { list.innerHTML = `<div class="muted">${esc(t("loading"))}</div>`; next = 0; }
+      try {
+        const r = await api.jamendoSearch(q, next);
+        if (!more) list.innerHTML = "";
+        if (!r.results.length && !more) list.innerHTML = `<div class="muted">${esc(t("jm_none"))}</div>`;
+        list.insertAdjacentHTML("beforeend", r.results.map(row).join(""));
+        next = r.next; $("#jmMore", el).classList.toggle("hidden", r.next == null);
+        bindRows();
+      } catch (e) { list.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+    };
+    const bindRows = () => {
+      el.querySelectorAll(".jmPlay").forEach(b => b.onclick = () => {
+        const id = b.dataset.id;
+        if (playing === id && !audio.paused) { audio.pause(); return; }
+        if (playing && playing !== id) setBtn(playing, false);
+        playing = id; audio.src = api.jamendoPreview(id); audio.play().catch(e => toast(e.message));
+      });
+      el.querySelectorAll(".jmUse").forEach(b => b.onclick = async () => {
+        const id = b.dataset.id, title = b.closest(".jm").querySelector(".t").textContent;
+        if ($("#upKey")) api.setKey($("#upKey").value);
+        el.querySelectorAll(".jmUse").forEach(x => x.disabled = true);
+        b.textContent = t("jm_importing");
+        try { await api.jamendoImport(id, getLang()); audio.pause(); close(); toast(t("jm_added", { t: title }), 3000); route(); }
+        catch (e) { toast(e.message, 4000); b.textContent = t("jm_use"); el.querySelectorAll(".jmUse").forEach(x => x.disabled = false); }
+      });
+    };
+    $("#jmForm", el).onsubmit = ev => { ev.preventDefault(); q = $("#jmQ", el).value.trim(); $("#jmHead", el).textContent = q ? "" : t("jm_popular"); $("#jmQ", el).blur(); load(false); };
+    $("#jmMore", el).onclick = () => load(true);
+    load(false);
+  });
+}
+
 function panel(html, bind) {
   const scrim = document.createElement("div"); scrim.className = "scrim";
   const p = document.createElement("div"); p.className = "sheetpanel"; p.innerHTML = html;
   document.body.append(scrim, p);
-  const close = () => { scrim.remove(); p.remove(); };
+  // "close" lets a panel release what it holds (the microphone, a preview) however it is dismissed
+  const close = () => { if (!p.isConnected) return; scrim.remove(); p.remove(); p.dispatchEvent(new Event("close")); };
   scrim.onclick = close;
   bind && bind(close, p);
   onCleanup(close);
