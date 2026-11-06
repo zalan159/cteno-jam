@@ -77,6 +77,7 @@ export const api = {
     return j(`/api/songs/${id}/play`, { method: "POST", json: { session: s } });
   },
   jamendoSearch(q, offset = 0) { return j(`/api/jamendo/search?q=${encodeURIComponent(q || "")}&offset=${offset || 0}`); },
+  jamendoChart(kind) { return j(`/api/jamendo/charts/${encodeURIComponent(kind)}`); },
   jamendoPreview(id) { return `/api/jamendo/preview/${encodeURIComponent(id)}.mp3`; },
   jamendoImport(id, lang) { return j("/api/jamendo/import", { method: "POST", json: { id, lang } }); },
   setKey(k) { localStorage.setItem("jam.key", k || ""); },

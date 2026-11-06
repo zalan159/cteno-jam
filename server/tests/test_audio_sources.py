@@ -29,6 +29,12 @@ TRACKS = [
     {"id": "1002", "name": "Locked Song", "artist_name": "Closed Band", "album_name": "", "duration": 200,
      "image": "", "shareurl": "https://www.jamendo.com/track/1002", "audiodownload_allowed": False,
      "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/"},
+    # Chinese tracks: three with lang=zh, more only reachable by tags (one in both, one locked)
+    *[{"id": str(2000 + i), "name": "中文歌 %d" % i, "artist_name": "华语乐队", "album_name": "", "duration": 200, "image": "",
+       "shareurl": "https://www.jamendo.com/track/%d" % (2000 + i), "audiodownload_allowed": i != 5,
+       "license_ccurl": "http://creativecommons.org/licenses/by/3.0/", "stats": {"rate_listened_total": 1000 - i},
+       "lang": "zh" if i < 3 else "", "tags": "chinese" if i >= 2 else "", "tags2": "chinese asian" if i >= 9 else ""}
+      for i in range(14)],
 ]
 
 
@@ -53,9 +59,18 @@ class FakeJamendo(BaseHTTPRequestHandler):
             rows = [t for t in TRACKS if not q.get("id") or t["id"] == q["id"]]
             if q.get("search"):
                 rows = [t for t in rows if q["search"].lower() in (t["name"] + t["artist_name"]).lower()]
+            if q.get("lang"):
+                rows = [t for t in rows if t.get("lang") == q["lang"]]
+            if q.get("tags") == "chinese":
+                rows = [t for t in rows if t.get("tags")]
+            elif q.get("tags") == "chinese asian":
+                rows = [t for t in rows if t.get("tags2")]
+            elif q.get("tags"):
+                rows = []
+            rows = rows[:int(q.get("limit") or 50)]
             res = []
             for t in rows:
-                r = dict(t, audio="%s/stream/%s.mp3?client_id=%s" % (base, t["id"], CLIENT_ID))
+                r = dict({k: v for k, v in t.items() if k not in ("lang", "tags", "tags2")}, audio="%s/stream/%s.mp3?client_id=%s" % (base, t["id"], CLIENT_ID))
                 r["audiodownload"] = "%s/dl/%s.mp3?client_id=%s" % (base, t["id"], CLIENT_ID) if t["audiodownload_allowed"] else ""
                 res.append(r)
             return self.reply(200, {"headers": {"status": "success", "results_count": len(res), "results_fullcount": len(res)},
@@ -92,6 +107,7 @@ def fake_jamendo():
     FakeJamendo.seen = []
     FakeJamendo.flaky = 0
     jamendo._search_cache.clear()
+    jamendo._chart_cache.clear()
     yield "http://127.0.0.1:%d/v3.0" % srv.server_address[1]
     srv.shutdown()
 
@@ -167,6 +183,7 @@ def test_jamendo_hidden_without_client_id(tmp_path, monkeypatch):
     with make_client(tmp_path, monkeypatch) as c:
         assert c.get("/api/info").json()["jamendo"] is False
         assert c.get("/api/jamendo/search?q=x").status_code == 404
+        assert c.get("/api/jamendo/charts/hot").status_code == 404
         assert c.post("/api/jamendo/import", json={"id": "1001"}).status_code == 404
 
 
@@ -176,7 +193,7 @@ def test_jamendo_search_only_downloadable_and_never_leaks_client_id(tmp_path, mo
         r = c.get("/api/jamendo/search?q=")
         assert r.status_code == 200, r.text
         res = r.json()["results"]
-        assert [t["id"] for t in res] == ["1001"]                       # the locked track is dropped
+        assert [t["id"] for t in res if t["id"] < "2000"] == ["1001"]   # the locked track is dropped
         assert res[0]["license"] == "CC BY-SA 3.0" and res[0]["license_url"].startswith("http://creativecommons.org/")
         assert CLIENT_ID not in r.text
         assert c.get("/api/jamendo/search?q=locked").json()["results"] == []
@@ -269,3 +286,75 @@ def test_jamendo_bogus_empty_answers_are_retried_and_good_ones_cached(tmp_path, 
         before = len(FakeJamendo.seen)
         assert c.get("/api/jamendo/search?q=zzzz").json()["results"] == []
         assert len(FakeJamendo.seen) == before + 1
+
+
+# ------------------------------------------------------------------ home-page lists (热门 / 中文)
+
+def test_hot_chart_is_popularity_total_top_20_downloadable_and_cached(tmp_path, monkeypatch, fake_jamendo):
+    with make_client(tmp_path, monkeypatch, jamendo_client_id=CLIENT_ID, jamendo_api_url=fake_jamendo) as c:
+        r = c.get("/api/jamendo/charts/hot")
+        assert r.status_code == 200, r.text
+        res = r.json()["results"]
+        assert "1002" not in [t["id"] for t in res] and "2005" not in [t["id"] for t in res]   # locked tracks never shown
+        assert len(res) == 14 and all(t["license"] and "listens" in t for t in res)
+        assert CLIENT_ID not in r.text
+        calls = [q for p, q, _ in FakeJamendo.seen if p == "/v3.0/tracks/"]
+        assert len(calls) == 1 and calls[0]["order"] == "popularity_total" and calls[0]["limit"] == "20"
+        assert "search" not in calls[0] and "lang" not in calls[0]
+        c.get("/api/jamendo/charts/hot")                                  # 10-minute cache: no new request
+        assert len([1 for p, q, _ in FakeJamendo.seen if p == "/v3.0/tracks/"]) == 1
+        monkeypatch.setattr(jamendo.time, "time", lambda t0=jamendo.time.time(): t0 + jamendo.CHART_TTL + 1)
+        c.get("/api/jamendo/charts/hot")
+        assert len([1 for p, q, _ in FakeJamendo.seen if p == "/v3.0/tracks/"]) == 2
+        # an imported chart track is usable right away (the preview url is remembered)
+        assert c.get("/api/jamendo/preview/%s.mp3" % res[0]["id"]).status_code == 200
+        assert c.get("/api/jamendo/charts/nope").status_code == 404
+
+
+def test_zh_chart_tops_up_from_tags_and_dedupes(tmp_path, monkeypatch, fake_jamendo):
+    with make_client(tmp_path, monkeypatch, jamendo_client_id=CLIENT_ID, jamendo_api_url=fake_jamendo) as c:
+        b = c.get("/api/jamendo/charts/zh").json()
+        ids = [t["id"] for t in b["results"]]
+        assert len(ids) == len(set(ids)) == 13                          # 3 lang=zh + 10 more tagged (2002 in both, 2005 locked)
+        assert ids[:3] == ["2000", "2001", "2002"]                      # lang=zh first, in Jamendo's order
+        assert b["sources"] == {"lang=zh": 3, "tags=chinese": 11}
+        calls = [q for p, q, _ in FakeJamendo.seen if p == "/v3.0/tracks/"]
+        assert [(q.get("lang"), q.get("tags")) for q in calls] == [("zh", None), (None, "chinese")]
+        assert all(q["order"] == "popularity_total" and q["limit"] == "20" for q in calls)
+
+
+def test_zh_chart_with_enough_lang_zh_does_not_ask_tags(tmp_path, monkeypatch, fake_jamendo):
+    monkeypatch.setattr(jamendo, "CHART_MIN_ZH", 3)
+    with make_client(tmp_path, monkeypatch, jamendo_client_id=CLIENT_ID, jamendo_api_url=fake_jamendo) as c:
+        assert len(c.get("/api/jamendo/charts/zh").json()["results"]) == 3
+        assert [q.get("lang") for p, q, _ in FakeJamendo.seen if p == "/v3.0/tracks/"] == ["zh"]
+
+
+def test_zh_chart_falls_through_to_chinese_asian(tmp_path, monkeypatch, fake_jamendo):
+    real = jamendo._tracks
+    def no_plain_tag(cfg, extra, limit=20):
+        return ([], 0) if extra.get("tags") == "chinese" else real(cfg, extra, limit)
+    monkeypatch.setattr(jamendo, "_tracks", no_plain_tag)
+    with make_client(tmp_path, monkeypatch, jamendo_client_id=CLIENT_ID, jamendo_api_url=fake_jamendo) as c:
+        b = c.get("/api/jamendo/charts/zh").json()
+        assert b["sources"] == {"lang=zh": 3, "tags=chinese": 0, "tags=chinese+asian": 5}
+        assert len(b["results"]) == 8
+    assert any(q.get("tags") == "chinese asian" for p, q, _ in FakeJamendo.seen)   # sent as tags=chinese+asian
+
+
+def test_chart_failure_is_502_and_not_cached(tmp_path, monkeypatch, fake_jamendo):
+    with make_client(tmp_path, monkeypatch, jamendo_client_id="wrong", jamendo_api_url=fake_jamendo) as c:
+        r = c.get("/api/jamendo/charts/hot")
+        assert r.status_code == 502 and "wrong" not in r.text
+    assert jamendo._chart_cache == {}
+
+
+def test_chart_rides_out_a_run_of_bogus_empty_answers_and_keeps_the_last_good_list(tmp_path, monkeypatch, fake_jamendo):
+    monkeypatch.setattr(jamendo.time, "sleep", lambda s: None)
+    with make_client(tmp_path, monkeypatch, jamendo_client_id=CLIENT_ID, jamendo_api_url=fake_jamendo) as c:
+        FakeJamendo.flaky = 4                                            # more than search's 3 tries
+        assert len(c.get("/api/jamendo/charts/hot").json()["results"]) == 14
+        t0 = jamendo.time.time()
+        monkeypatch.setattr(jamendo.time, "time", lambda: t0 + jamendo.CHART_TTL + 1)
+        FakeJamendo.flaky = 100                                          # expired, and Jamendo only answers empty now
+        assert len(c.get("/api/jamendo/charts/hot").json()["results"]) == 14

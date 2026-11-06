@@ -11,6 +11,9 @@ const AUDIO = path.join(DEMO, "twinkle.mp3");
 const LRC = fs.readFileSync(path.join(DEMO, "twinkle.lrc"), "utf8");
 const log = [];
 const note = (step, data) => { const row = { t: new Date().toISOString(), step, ...data }; log.push(row); console.log(JSON.stringify(row)); };
+// the home page shows tabs + songs only: upload is a sheet behind #upOpen, search a box behind #searchBtn
+async function openUpload(page) { if (!(await page.locator(".upsheet").count())) await page.click("#upOpen"); await expect(page.locator(".upsheet #file")).toBeAttached(); }
+async function openSearch(page) { if (await page.locator("#q").isHidden()) await page.click("#searchBtn"); await expect(page.locator("#q")).toBeVisible(); }
 
 async function shot(page, name) {
   const p = path.join(EVID, `${test.info().project.name}-${name}.png`);
@@ -38,6 +41,7 @@ test("upload → process → play → share → big screen → remote", async ({
 
   // ---------------------------------------------------------- 1. upload from the library
   await page.goto("/");
+  await openUpload(page);
   await expect(page.locator(".brand")).toBeVisible();
   await shot(page, "01-library");
   await page.setInputFiles("#file", AUDIO);
@@ -319,6 +323,7 @@ test("upload → process → play → share → big screen → remote", async ({
 
   // ---------------------------------------------------------- 15. rename, search, delete
   await page.goto("/");
+  await openSearch(page);
   await page.fill("#q", title.slice(0, 12));
   await expect(page.locator(".song", { hasText: title })).toBeVisible();
   await page.locator(".song", { hasText: title }).locator("[data-act=menu]").click();
@@ -340,6 +345,7 @@ test("upload → process → play → share → big screen → remote", async ({
 
 test("failed upload shows the reason and can be retried", async ({ page, request }) => {
   await page.goto("/");
+  await openUpload(page);
   const bad = path.join(test.info().outputDir, "not-audio.mp3");
   fs.mkdirSync(path.dirname(bad), { recursive: true });
   fs.writeFileSync(bad, "this is not audio");
@@ -363,6 +369,7 @@ test("failed upload shows the reason and can be retried", async ({ page, request
 
 test("encrypted music-app files are refused with a plain message", async ({ page }) => {
   await page.goto("/?lang=zh");
+  await openUpload(page);
   const dir = test.info().outputDir; fs.mkdirSync(dir, { recursive: true });
   // 1. picked by name: told at once, no upload form
   const mgg = path.join(dir, "Price Tag [mqms2].mgg2");

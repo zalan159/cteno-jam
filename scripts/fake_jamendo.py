@@ -29,6 +29,15 @@ TRACKS = [
     {"id": "900003", "name": "Locked Track (must not appear)", "artist_name": "No Downloads", "album_name": "", "file": "twinkle.mp3",
      "duration": 65, "audiodownload_allowed": False, "license_ccurl": "http://creativecommons.org/licenses/by-nc-nd/3.0/",
      "listens": 99999999, "popularity": 9},
+    # home-page lists: more popular tracks (热门) and Chinese ones (中文: lang=zh, plus one only tagged "chinese")
+    *[{"id": "9101%02d" % i, "name": "Free Hit %d" % (i + 1), "artist_name": "Open Artists", "album_name": "Hits",
+       "file": "frere-jacques.mp3", "duration": 60, "audiodownload_allowed": True,
+       "license_ccurl": "http://creativecommons.org/licenses/by/4.0/", "listens": 900000 - i * 50000, "popularity": 8 - i * 0.5}
+      for i in range(8)],
+    *[{"id": "9201%02d" % i, "name": "中文歌 %d" % (i + 1), "artist_name": "华语乐队", "album_name": "华语",
+       "file": "twinkle.mp3", "duration": 65, "audiodownload_allowed": True, "lang": "zh" if i < 6 else "", "tags": "chinese",
+       "license_ccurl": "http://creativecommons.org/licenses/by-sa/3.0/", "listens": 50000 - i * 3000, "popularity": 0.5 - i * 0.01}
+      for i in range(8)],
 ]
 
 
@@ -45,11 +54,16 @@ class H(BaseHTTPRequestHandler):
             if q.get("search"):
                 s = q["search"].lower()
                 rows = [t for t in rows if s in (t["name"] + " " + t["artist_name"]).lower()]
+            if q.get("lang"):
+                rows = [t for t in rows if t.get("lang") == q["lang"]]
+            if q.get("tags"):
+                rows = [t for t in rows if set(q["tags"].split()) <= set(t.get("tags", "").split())]
             if q.get("order") == "popularity_total":
                 rows = sorted(rows, key=lambda t: -t["popularity"])   # Jamendo's composite popularity, not listens
+            rows = rows[:int(q.get("limit") or 50)]
             res = []
             for t in rows:
-                r = {k: v for k, v in t.items() if k not in ("file", "listens", "popularity")}
+                r = {k: v for k, v in t.items() if k not in ("file", "listens", "popularity", "lang", "tags")}
                 if "stats" in q.get("include", ""):
                     r["stats"] = {"rate_listened_total": t["listens"], "rate_downloads_total": t["listens"] // 2}
                 r.update(image="", shareurl="https://www.jamendo.com/track/%s" % t["id"],

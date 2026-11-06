@@ -15,6 +15,8 @@
     POST   /api/songs/{id}/play              {"session"} count a play/jam start (once per session+song per 30 s)
     GET    /api/jamendo/search?q=&offset=    Jamendo free catalogue, downloadable tracks only, most popular first
                                              (order=popularity_total; each result carries `listens`) (JAM_JAMENDO_CLIENT_ID)
+    GET    /api/jamendo/charts/{hot|zh}      home-page lists, no search: popularity_total top 20 / Chinese (lang=zh,
+                                             topped up from tags=chinese[+asian] below 10); cached 10 min
     GET    /api/jamendo/preview/{tid}.mp3    preview stream proxied through the server (client id stays private)
     POST   /api/jamendo/import               {"id","lang"} download the track and queue it, keeping its license
     GET    /api/events                       Server-Sent Events: library changes (progress)
@@ -208,6 +210,17 @@ def create_app(cfg: Optional[config.Config] = None, start_queue: bool = True) ->
         jamendo_on()
         try:
             return jamendo.search(cfg, q, offset)
+        except jamendo.JamendoError as e:
+            raise HTTPException(502, str(e))
+
+    @app.get("/api/jamendo/charts/{kind}")
+    def jamendo_charts(kind: str):
+        """Home-page lists without searching: hot (popularity_total top 20) and zh (Chinese). Cached 10 min."""
+        jamendo_on()
+        if kind not in jamendo.CHARTS:
+            raise HTTPException(404, "unknown list")
+        try:
+            return jamendo.charts(cfg, kind)
         except jamendo.JamendoError as e:
             raise HTTPException(502, str(e))
 

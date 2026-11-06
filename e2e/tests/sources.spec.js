@@ -11,6 +11,9 @@ const DEMO = process.env.JAM_DEMO_DIR || "../demo/source";
 const AUDIO = path.join(DEMO, "twinkle.mp3");
 const log = [];
 const note = (step, data) => { const row = { t: new Date().toISOString(), step, ...data }; log.push(row); console.log(JSON.stringify(row)); };
+// the home page shows tabs + songs only: upload is a sheet behind #upOpen, search a box behind #searchBtn
+async function openUpload(page) { if (!(await page.locator(".upsheet").count())) await page.click("#upOpen"); await expect(page.locator(".upsheet #file")).toBeAttached(); }
+async function openSearch(page) { if (await page.locator("#q").isHidden()) await page.click("#searchBtn"); await expect(page.locator("#q")).toBeVisible(); }
 const shot = (page, name, full = false) => page.screenshot({ path: path.join(EVID, `${test.info().project.name}-${name}.png`), fullPage: full });
 const ANDROID_WX = "Mozilla/5.0 (Linux; Android 14; V2309A Build/UP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/122.0.6261.120 Mobile Safari/537.36 XWEB/1220133 MMWEBSDK/20240404 MicroMessenger/8.0.49.2600(0x2800315A) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64";
 const IOS_WX = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.53(0x18003531) NetType/WIFI Language/zh_CN";
@@ -41,6 +44,7 @@ async function fitsPhone(page) {
 
 test("entry points: record and files/WeChat tip; no separate free-music button", async ({ page }, info) => {
   await page.goto("/?lang=zh");
+  await openUpload(page);
   await expect(page.locator("#recBtn")).toBeVisible();
   await expect(page.locator("#jmBtn")).toHaveCount(0);           // Jamendo lives in the search box now
   await expect(page.locator("#q")).toHaveAttribute("placeholder", /免费音乐/);
@@ -53,6 +57,7 @@ test("entry points: record and files/WeChat tip; no separate free-music button",
   await expect(page.locator("#wxTip p").first()).toContainText("微信");
   await shot(page, "30-sources-zh");
   await page.goto("/?lang=en");
+  await openUpload(page);
   await expect(page.locator("#recBtn")).toContainText("Record");
   await expect(page.locator("#q")).toHaveAttribute("placeholder", /free music/);
   expect((await fitsPhone(page)).over).toEqual([]);
@@ -68,6 +73,7 @@ test("no Jamendo client id: search only looks in the library, no errors", async 
   page.on("request", r => { if (r.url().includes("/api/jamendo/")) jmCalls.push(r.url()); });
   await page.goto("/?lang=zh");
   await expect(page.locator("#q")).toHaveAttribute("placeholder", "搜索歌曲");
+  await openSearch(page);
   await page.fill("#q", "twinkle");
   await page.waitForTimeout(1200);
   expect(jmCalls).toEqual([]);
@@ -81,8 +87,9 @@ test("record in the browser → use it → it is processed like an upload", asyn
   test.skip(browserName === "webkit", "Playwright's WebKit has no capture devices; Safari's AAC/MP4 path is covered by the format unit tests and the server-side MIME/duration tests");
   await page.context().grantPermissions(["microphone"]);
   await page.goto("/?lang=zh");
+  await openUpload(page);
   await page.click("#recBtn");
-  await expect(page.locator(".sheetpanel h3")).toHaveText("录一段");
+  await expect(page.locator(".sheetpanel h3").last()).toHaveText("录一段");
   await page.click("#recStart");
   await page.waitForFunction(() => window.__jamRec && window.__jamRec.state === "recording");
   await page.waitForTimeout(6500);
@@ -119,6 +126,7 @@ test("microphone blocked: a plain message, and the upload still works", async ({
     if (!window.MediaRecorder) window.MediaRecorder = function () {};
   });
   await page.goto("/?lang=zh");
+  await openUpload(page);
   await page.click("#recBtn");
   await page.click("#recStart");
   await expect(page.locator("#recMsg")).toContainText("麦克风被拒绝");
@@ -141,6 +149,7 @@ test("files from WeChat / Files: no extension, wrong kind, Android WeChat accept
     const ctx = await browser.newContext({ ...info.project.use, userAgent: ua, baseURL, locale: "zh-CN" });
     const page = await ctx.newPage();
     await page.goto("/?lang=zh");
+    await openUpload(page);
     const accept = await page.getAttribute("#file", "accept");
     await expect(page.locator("#wxTip")).toHaveAttribute("open", "");
     note("wechat-accept", { proj: info.project.name, ua: name, accept, tip: await page.locator("#wxTip").innerText() });
@@ -166,6 +175,7 @@ test("files from WeChat / Files: no extension, wrong kind, Android WeChat accept
       expect(["queued", "processing", "ready"]).toContain(s.status);
       await remove(request, s.id);
       // the encrypted-download refusal still applies here
+      await openUpload(page);   // the sheet closed itself after the upload above
       const ncm = path.join(dir, "歌.ncm"); fs.writeFileSync(ncm, Buffer.concat([Buffer.from("CTENFDAM"), Buffer.alloc(256)]));
       await page.setInputFiles("#file", ncm);
       await expect(page.locator("#upFile")).toContainText("网易云音乐的加密文件");
@@ -193,6 +203,7 @@ test("search mixes the library with Jamendo by popularity; tap a result to use i
   expect((await (await request.get(`/api/songs/${local.id}`)).json()).plays).toBe(2);    // the repeat within 30 s is not counted
 
   await page.goto(`/?lang=${lang}`);
+  await openSearch(page);
   await page.fill("#q", "twinkle");
   await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(2);
   const rows = await page.evaluate(() => window.__jamList);
@@ -219,19 +230,23 @@ test("search mixes the library with Jamendo by popularity; tap a result to use i
   await first.locator(".jmPlay").click();
 
   // a word Jamendo only has a locked track for: library-only "nothing found", no error
+  await openSearch(page);
   await page.fill("#q", "locked");
   await expect(page.locator(".card.muted")).toBeVisible();
   await expect(page.locator(".song")).toHaveCount(0);
 
   // tap the Jamendo row itself: it is imported and then lives in the library with its license
+  await openSearch(page);
   await page.fill("#q", "twinkle");
   await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(2);
   // "e2e" matches all three Jamendo tracks: Jamendo sent Lullaby (800) before Frère Jacques (12,345); the list shows by number
+  await openSearch(page);
   await page.fill("#q", "(e2e)");
   await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(3);
   const byNum = (await page.evaluate(() => window.__jamList)).filter(r => r.kind === "jamendo").map(r => r.listens);
   note("jamendo-order", { proj: info.project.name, byNum });
   expect(byNum).toEqual([1234567, 12345, 800]);
+  await openSearch(page);
   await page.fill("#q", "twinkle");
   await expect(page.locator('.song[data-kind="jamendo"]')).toHaveCount(2);
   await page.locator(".song").nth(0).locator(".info").click();
@@ -265,8 +280,8 @@ test("search mixes the library with Jamendo by popularity; tap a result to use i
   note("plays", { proj: info.project.name, id: s.id, plays: after, why: await page.evaluate(() => window.__jam.S.playCount) });
   expect(after).toBe(1);
 
-  // library (no query): sorted by plays, with the counts shown
-  await page.goto(`/?lang=${lang}`);
+  // 我的曲库 (no query): sorted by plays, with the counts shown
+  await page.goto(`/?lang=${lang}#/?tab=mine`);
   await expect(page.locator(".song").first()).toBeVisible();
   const lib = await page.evaluate(() => window.__jamList.map(r => [r.title, r.plays]));
   note("library-order", { proj: info.project.name, lib });

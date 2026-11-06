@@ -1,7 +1,7 @@
 // UI strings. Add a language by adding a block; keys missing in a language fall back to English.
 const S = {
   en: {
-    app: "Cteno Jam", tagline: "Upload a song. Get stems, chords and synced lyrics. Play and sing together.",
+    app: "Cteno Jam",
     library: "Library", search: "Search songs", upload: "Add a song", upload_hint: "From Files, WeChat or a drop · mp3, m4a, wav, flac, amr",
     upload_btn: "Upload a song", upload_change: "Change song", picked: "Selected: {f}",
     enc_file: "This is an encrypted {app} download, so it can't be used directly. Please choose a regular audio file such as mp3, m4a or flac (for example exported from elsewhere, or downloaded in a standard format).",
@@ -27,6 +27,8 @@ const S = {
     search_all: "Search songs or artists (library + free music)", nothing_found: "Nothing found. Try another word, or upload the song.",
     src_badge_local: "Library", src_badge_jamendo_lib: "Library · Jamendo",
     plays_title_local: "Plays on this site", plays_title_jamendo: "Listens on Jamendo",
+    tab_hot: "Popular", demo_src: "Demo", tab_zh: "Chinese", tab_mine: "My library", up_open: "Upload", search_open: "Search",
+    chart_loading: "Loading free popular songs from Jamendo…", chart_empty: "No free songs in this list right now; showing your library.",
     jm_searching: "Searching free music on Jamendo…", jm_unreachable: "Free music (Jamendo) is not reachable right now; showing your library only.",
     app_qq: "QQ Music", app_netease: "NetEase Cloud Music", app_kugou: "Kugou Music", app_kuwo: "Kuwo Music", app_apple: "Apple Music",
     title: "Title", artist: "Artist (optional, helps find lyrics)", lyrics_opt: "Lyrics or LRC (optional)", choose_file: "Choose audio file",
@@ -71,7 +73,7 @@ const S = {
     lang: "中文",
   },
   zh: {
-    app: "Cteno Jam", tagline: "传一首歌，自动拆分轨、扒和弦、对歌词，大家一起弹、一起唱。",
+    app: "Cteno Jam",
     library: "曲库", search: "搜索歌曲", upload: "添加歌曲", upload_hint: "从「文件」、微信里选，或拖到这里 · 支持 mp3、m4a、wav、flac、amr",
     upload_btn: "上传歌曲", upload_change: "换一首", picked: "已选：{f}",
     enc_file: "这是{app}的加密文件，不能直接用。请换成 mp3、m4a、flac 等普通音频（比如从别处导出，或用会员下载的普通格式）。",
@@ -95,6 +97,8 @@ const S = {
     search_all: "搜歌名或歌手（曲库 + 免费音乐）", nothing_found: "没找到，换个词试试，或者自己上传这首歌。",
     src_badge_local: "曲库", src_badge_jamendo_lib: "曲库 · Jamendo",
     plays_title_local: "本站播放次数", plays_title_jamendo: "Jamendo 上的收听次数",
+    tab_hot: "热门", demo_src: "演示", tab_zh: "中文", tab_mine: "我的曲库", up_open: "上传", search_open: "搜索",
+    chart_loading: "正在加载 Jamendo 免费热门歌…", chart_empty: "这个歌单暂时没有歌，先显示曲库里的歌。",
     jm_searching: "正在搜索 Jamendo 免费音乐…", jm_unreachable: "免费曲库（Jamendo）暂时连不上，先只显示本地曲库。",
     app_qq: "QQ 音乐", app_netease: "网易云音乐", app_kugou: "酷狗音乐", app_kuwo: "酷我音乐", app_apple: "Apple Music",
     title: "歌名", artist: "歌手（可选，用来查歌词）", lyrics_opt: "歌词或 LRC（可选）", choose_file: "选择音频文件",

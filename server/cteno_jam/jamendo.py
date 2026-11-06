@@ -116,6 +116,77 @@ def search(cfg, q: str = "", offset: int = 0, limit: int = 20) -> Dict:
     return res
 
 
+_chart_cache: Dict[str, tuple] = {}   # chart kind -> (non-empty result, time)
+CHART_TTL = 600
+CHART_SIZE = 20
+CHART_MIN_ZH = 10       # fewer lang=zh tracks than this: top up from the "chinese" tags
+CHARTS = ("hot", "zh")
+
+
+CHART_TRIES = 6        # Jamendo's bogus empty answers come in runs (seen 3 in a row on 2026-11-07)
+
+
+def _tracks(cfg, extra: Dict, limit: int = CHART_SIZE) -> tuple:
+    """One /tracks/ call in popularity_total order (retrying Jamendo's bogus empty answers).
+    -> (downloadable raw tracks, results_fullcount)."""
+    params = {"limit": limit, "include": "licenses stats", "fullcount": "true", "audioformat": "mp31",
+              "audiodlformat": "mp32", "imagesize": 100, "order": "popularity_total", **extra}
+    for attempt in range(CHART_TRIES):
+        body = _get(cfg, "/tracks/", params)
+        h = body.get("headers") or {}
+        if body.get("results") or h.get("results_fullcount") not in (None, ""):
+            break
+        time.sleep(0.3 * (attempt + 1))
+    return [t for t in body.get("results") or [] if downloadable(t)], (body.get("headers") or {}).get("results_fullcount")
+
+
+def charts(cfg, kind: str) -> Dict:
+    """Home-page lists, no search needed: "hot" = the 20 most popular downloadable tracks of all time;
+    "zh" = Chinese-language tracks (lang=zh), topped up from tags=chinese / tags=chinese+asian when lang=zh
+    gives fewer than CHART_MIN_ZH. Same order and filter as search; cached CHART_TTL seconds per kind."""
+    if kind not in CHARTS:
+        raise ValueError(kind)
+    hit = _chart_cache.get(kind)
+    if hit and time.time() - hit[1] < CHART_TTL:
+        return hit[0]
+    try:
+        res = _build_chart(cfg, kind)
+    except JamendoError:
+        if hit:
+            return hit[0]       # Jamendo is down: the last good list is better than none
+        raise
+    if res["results"]:
+        _chart_cache[kind] = (res, time.time())
+    elif hit:
+        return hit[0]
+    return res
+
+
+def _build_chart(cfg, kind: str) -> Dict:
+    steps = [{}] if kind == "hot" else [{"lang": "zh"}, {"tags": "chinese"}, {"tags": "chinese asian"}]
+    seen, rows, counts = set(), [], {}
+    for i, extra in enumerate(steps):
+        if i and len(rows) >= CHART_MIN_ZH:
+            break
+        try:
+            got, _full = _tracks(cfg, extra)
+        except JamendoError:
+            if not i:
+                raise           # the main query failed: report it (the page falls back to the library)
+            continue            # a top-up failed: keep what we have
+        key = "&".join("%s=%s" % (k, v.replace(" ", "+")) for k, v in extra.items()) or "order=popularity_total"
+        counts[key] = len(got)
+        for t in got:
+            if str(t.get("id")) not in seen and len(rows) < CHART_SIZE:
+                seen.add(str(t.get("id")))
+                rows.append(t)
+    now = time.time()
+    for t in rows:
+        if t.get("audio"):
+            _preview[str(t["id"])] = (t["audio"], now)
+    return {"kind": kind, "results": [view(t) for t in rows], "sources": counts}
+
+
 def track(cfg, tid: str) -> Optional[Dict]:
     """Raw track record, or None when it does not exist or is not downloadable."""
     body = _get(cfg, "/tracks/", {"id": tid, "include": "licenses", "audioformat": "mp31", "audiodlformat": "mp32"})

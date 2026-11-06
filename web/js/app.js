@@ -77,34 +77,69 @@ function stageLabel(m) {
   return t("st_" + m.status);
 }
 
+// Home page: the first screen is songs, nothing else. One row of tabs (热门 / 中文 / 我的曲库) with small
+// Search and Upload buttons at its right, then the list.
+//   热门 Popular — ready library songs + Jamendo's popularity_total top 20, mixed by popularity (popularity.js)
+//   中文 Chinese — Jamendo Chinese-language tracks (server: lang=zh, topped up from tags)
+//   我的曲库    — every library song, including ones still processing or failed
+// The Jamendo lists come from the server (cached there 10 min) and need no search and no login. When the
+// server has no Jamendo client id, or Jamendo fails, the tab shows the library songs instead of an empty box.
+// Typing in the search box (opened with the Search button) switches the list to the mixed search results.
+// Upload lives in a sheet opened from the Upload button; after a successful upload it closes and shows 我的曲库.
+const TABS = ["hot", "zh", "mine"];
 async function libraryView(q) {
   document.title = "Cteno Jam";
-  // One search box for everything: the local library (filtered here) and, when the server has a Jamendo
-  // client id, Jamendo's free catalogue (asked on the server, debounced). Both are shown in one list,
-  // most played first — see popularity.js for how local plays and Jamendo listens are compared.
   let songs = [], query = q.get("q") || "", jm = { q: "", results: [], loading: false, error: null };
+  let tab = TABS.includes(q.get("tab")) ? q.get("tab") : "hot", searchOpen = !!query;
+  const charts = { hot: { state: "idle", results: [] }, zh: { state: "idle", results: [] } };
   let jmTimer = 0, jmSeq = 0, previewId = null;
+  const jmOn = () => INFO.jamendo && !isStatic;
   const audio = new Audio(); audio.preload = "none"; audio.id = "jmAudio";
   onCleanup(() => { clearTimeout(jmTimer); audio.pause(); audio.removeAttribute("src"); });
+  const canUpload = INFO.upload && !isStatic;
   const render = () => {
-    app.innerHTML = topBar(`<div class="brand"><i></i>${t("app")}</div><div class="grow"></div>`) + `
+    app.innerHTML = topBar(`<div class="brand">${t("app")}</div><div class="grow"></div>`) + `
       <main class="lib">
-        <p class="hero">${esc(t("tagline"))}</p>
-        <input type="search" id="q" placeholder="${esc(t(INFO.jamendo ? "search_all" : "search"))}" value="${esc(query)}" autocomplete="off" enterkeyhint="search">
-        ${INFO.upload ? uploadCard() : isStatic ? "" : `<div class="card muted">${esc(t("no_upload"))}</div>`}
+        <div class="tabsrow">
+          <div class="tabs" role="tablist">${TABS.map(k => `<button role="tab" class="tab ${k === tab ? "on" : ""}" data-tab="${k}" aria-selected="${k === tab}">${esc(t("tab_" + k))}</button>`).join("")}</div>
+          <div class="grow"></div>
+          <button class="ghost mini" id="searchBtn" aria-label="${esc(t("search_open"))}">${SEARCH_SVG}</button>
+          ${canUpload ? `<button class="mini upmini" id="upOpen">${UP_SVG}<span>${esc(t("up_open"))}</span></button>` : ""}
+        </div>
+        <input type="search" id="q" class="${searchOpen ? "" : "hidden"}" placeholder="${esc(t(INFO.jamendo ? "search_all" : "search"))}" value="${esc(query)}" autocomplete="off" enterkeyhint="search">
         <div class="songs" id="songs"></div>
+        ${!INFO.upload && !isStatic ? `<div class="card muted">${esc(t("no_upload"))}</div>` : ""}
       </main>`;
     bindLang(render);
+    app.querySelectorAll(".tab").forEach(b => b.onclick = () => { tab = b.dataset.tab; app.querySelectorAll(".tab").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); }); loadChart(); lastHtml = ""; drawSongs(); });
+    $("#searchBtn").onclick = () => {
+      searchOpen = !searchOpen || !!query; const el = $("#q"); el.classList.toggle("hidden", !searchOpen);
+      if (searchOpen) el.focus();
+    };
+    if ($("#upOpen")) $("#upOpen").onclick = () => uploadSheet();
     $("#q").oninput = e => { query = e.target.value; lastHtml = ""; drawSongs(); askJamendo(); };
     $("#q").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); clearTimeout(jmTimer); askJamendo(0); e.target.blur(); } };
-    if (INFO.upload) bindUpload();
+    lastHtml = ""; drawSongs();
+  };
+  const uploadSheet = () => panel(`<div class="uphead"><h3>${esc(t("upload"))}</h3><div class="grow"></div><button class="ghost mini" id="upClose" aria-label="close">✕</button></div>${uploadCard()}`, (close, el) => {
+    el.classList.add("upsheet");
+    $("#upClose").onclick = close;
+    bindUpload(() => { close(); tab = "mine"; query = ""; searchOpen = false; render(); list(); });
+  });
+  // the home-page lists: fetched once per page view (the server caches them for 10 minutes)
+  const loadChart = async () => {
+    if (!jmOn() || !charts[tab] || charts[tab].state !== "idle") return;
+    const kind = tab, c = charts[kind];
+    c.state = "loading"; lastHtml = ""; drawSongs();
+    try { c.results = (await api.jamendoChart(kind)).results || []; c.state = "ok"; }
+    catch (e) { c.results = []; c.state = "error"; }
     lastHtml = ""; drawSongs();
   };
   // Jamendo results for the current query (only when the server has a client id; never on an empty query)
   const askJamendo = (delay = 400) => {
     clearTimeout(jmTimer);
     const ql = query.trim();
-    if (!INFO.jamendo || isStatic || ql.length < 2) { jmSeq++; jm = { q: "", results: [], loading: false, error: null }; lastHtml = ""; drawSongs(); return; }
+    if (!jmOn() || ql.length < 2) { jmSeq++; jm = { q: "", results: [], loading: false, error: null }; lastHtml = ""; drawSongs(); return; }
     if (jm.q === ql && !jm.error) return;
     jmTimer = setTimeout(async () => {
       const seq = ++jmSeq;
@@ -125,13 +160,14 @@ async function libraryView(q) {
     const busy = m.status === "queued" || m.status === "processing" || m.status === "uploading";
     const ai = m.ai && m.ai.status === "done" ? `<span class="badge ai">AI ✓ ${m.ai.accepted || 0}</span>` : "";
     const fromJm = m.source && m.source.kind === "jamendo";
+    const lic = m.demo ? "CC0" : m.license;
     return `<div class="song" data-kind="local" data-id="${esc(m.id)}">
       <div class="art" style="background:hsl(${hue(m.id)} 70% 62%)">${esc((m.title || "?").trim()[0] || "?")}</div>
       <div class="info">
-        <div class="t">${esc(m.title)}${m.demo ? `<span class="badge">${esc(t("demo_badge"))}</span>` : ""}${ai}</div>
+        <div class="t">${esc(m.title)}${ai}</div>
         <div class="m ${m.status === "failed" ? "err" : ""}">${esc(m.artist ? m.artist + " · " : "")}${m.duration ? fmt(m.duration) + " · " : ""}${esc(stageLabel(m))}</div>
         <div class="m src-line"><span class="plays" title="${esc(t("plays_title_local"))}">${esc(playsLabel(m.plays || 0, getLang()))}</span>
-          <span class="badge srcb ${fromJm ? "jmb" : "localb"}">${esc(t(fromJm ? "src_badge_jamendo_lib" : "src_badge_local"))}</span>${!m.demo && m.license ? `<a class="badge lic" href="${esc(m.license_url || (m.source && m.source.page) || "#")}" target="_blank" rel="noopener" title="${esc(t("jm_license"))}">${esc(m.license)}</a>` : ""}</div>
+          <span class="badge srcb ${fromJm ? "jmb" : "localb"}">${esc(t(m.demo ? "demo_src" : fromJm ? "src_badge_jamendo_lib" : "src_badge_local"))}</span>${lic ? `<a class="badge lic" href="${esc(m.license_url || (m.source && m.source.page) || (m.demo ? "https://creativecommons.org/publicdomain/zero/1.0/" : "#"))}" target="_blank" rel="noopener" title="${esc(t("jm_license"))}">${esc(lic)}</a>` : ""}</div>
         ${m.status === "failed" && m.error ? `<div class="m err">${esc(m.error)}</div>` : ""}
         ${busy ? `<div class="prog"><i style="width:${Math.round((m.progress || 0) * 100)}%"></i></div>` : ""}
       </div>
@@ -153,22 +189,35 @@ async function libraryView(q) {
         <button class="jmPlay" data-act="preview" aria-label="${esc(t("jm_play"))}">${previewId === r.id && !audio.paused ? "❚❚" : "▶"}</button>
         <button class="primary jmUse" data-act="use">${esc(t("jm_use"))}</button>
       </div></div>`;
+  // what the list shows right now -> { rows, note, jmList }
+  const currentRows = () => {
+    const ql = query.trim().toLowerCase();
+    if (ql) {
+      const local = songs.filter(s => (s.title || "").toLowerCase().includes(ql) || (s.artist || "").toLowerCase().includes(ql));
+      const on = jmOn() && ql.length >= 2 && jm.q.toLowerCase() === ql;
+      let note = "";
+      if (jmOn() && ql.length >= 2) note = jm.loading ? "jm_searching" : jm.error ? "jm_unreachable" : on ? "jm_from" : "";
+      return { rows: mixResults(local, on ? jm.results : []), note, jmList: jm.results, empty: jm.loading ? "" : "nothing_found" };
+    }
+    if (tab === "mine") return { rows: sortLocal(songs).map(song => ({ kind: "local", song })), note: "", jmList: [], empty: "empty" };
+    const ready = songs.filter(s => s.status === "ready");
+    const lib = ready.length ? ready : songs;            // never an empty box while the library has songs
+    const c = charts[tab];
+    if (!jmOn()) return { rows: mixResults(lib, []), note: "", jmList: [], empty: "empty" };
+    const note = c.state === "loading" ? "chart_loading" : c.state === "error" ? "jm_unreachable" : c.state === "ok" ? (c.results.length ? "jm_from" : "chart_empty") : "";
+    // 中文 shows Jamendo's Chinese list; it falls back to the library only when that list is empty or failed
+    const local = tab === "hot" || (c.state !== "loading" && !c.results.length) ? lib : [];
+    return { rows: mixResults(local, c.results), note, jmList: c.results, empty: c.state === "loading" ? "" : "empty" };
+  };
   const drawSongs = () => {
     const el = $("#songs"); if (!el) return;
-    const ql = query.trim().toLowerCase();
-    const local = songs.filter(s => !ql || (s.title || "").toLowerCase().includes(ql) || (s.artist || "").toLowerCase().includes(ql));
-    const jmOn = INFO.jamendo && !isStatic && ql.length >= 2 && jm.q.toLowerCase() === ql;
-    const rows = ql ? mixResults(local, jmOn ? jm.results : []) : sortLocal(local).map(song => ({ kind: "local", song }));
+    const { rows, note: noteKey, jmList, empty } = currentRows();
     window.__jamList = rows.map(r => r.kind === "local" ? { kind: "local", id: r.song.id, title: r.song.title, plays: r.song.plays || 0, score: r.score }
       : { kind: "jamendo", id: r.track.id, title: r.track.title, listens: r.track.listens || 0, license: r.track.license, score: r.score });
-    let note = "";
-    if (INFO.jamendo && ql.length >= 2) {
-      if (jm.loading) note = `<div class="muted jmNote">${esc(t("jm_searching"))}</div>`;
-      else if (jm.error) note = `<div class="muted jmNote">${esc(t("jm_unreachable"))}</div>`;
-      else if (jmOn) note = `<div class="muted jmNote">${esc(t("jm_from"))}</div>`;
-    }
+    window.__jamTab = query.trim() ? "search" : tab;
+    const note = noteKey ? `<div class="muted jmNote">${esc(t(noteKey))}</div>` : "";
     if (!rows.length) {
-      const html = (jm.loading ? "" : `<div class="card muted">${esc(t(ql ? "nothing_found" : "empty"))}</div>`) + note;
+      const html = (empty ? `<div class="card muted">${esc(t(empty))}</div>` : "") + note;
       if (html !== lastHtml) { lastHtml = html; el.innerHTML = html; }
       return;
     }
@@ -191,11 +240,10 @@ async function libraryView(q) {
       row.onclick = () => m && m.status === "ready" && go(`#/s/${id}`);
     });
     el.querySelectorAll('.song[data-kind="jamendo"]').forEach(row => {
-      const id = row.dataset.id, r = jm.results.find(x => x.id === id);
+      const id = row.dataset.id, r = jmList.find(x => x.id === id);
       row.querySelectorAll("a").forEach(a => a.onclick = ev => ev.stopPropagation());
       const use = async () => {
         if (!r || row.classList.contains("busy")) return;
-        if ($("#upKey")) api.setKey($("#upKey").value);
         row.classList.add("busy"); const b = row.querySelector(".jmUse"); b.disabled = true; b.textContent = t("jm_importing");
         try {
           const m = await api.jamendoImport(id, getLang());
@@ -222,10 +270,14 @@ async function libraryView(q) {
   window.__jamPreview = audio;
   const list = async () => { try { songs = await api.list(""); lastHtml = ""; drawSongs(); } catch (e) { $("#songs").innerHTML = `<div class="card err">${esc(e.message)}</div>`; } };
   render();
+  loadChart();
   await list();
   askJamendo(0);
   onCleanup(api.events(s => { songs = s; drawSongs(); }));
 }
+
+const SEARCH_SVG = `<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>`;
+const UP_SVG = `<svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>`;
 
 function songMenu(m) {
   panel(`<h3>${esc(m.title)}</h3>
@@ -269,7 +321,7 @@ function uploadCard() {
       <div class="prog hidden" id="upProg"><i style="width:0"></i></div><div id="upMsg" class="muted"></div>
     </div></div>`;
 }
-function bindUpload() {
+function bindUpload(onDone) {
   const f = $("#file"), form = $("#upForm"), drop = $("#drop");
   let file = null, previewUrl = null;
   const setPreview = blob => {
@@ -310,7 +362,7 @@ function bindUpload() {
     try {
       await api.upload(file, { title: $("#upTitle").value, artist: $("#upArtist").value, lyrics: $("#upLyrics").value, lang: getLang() },
         p => { $("#upProg i").style.width = (p * 100).toFixed(0) + "%"; $("#upMsg").textContent = t("uploading", { p: Math.round(p * 100) }); });
-      route();
+      onDone ? onDone() : route();
     } catch (e) {
       $("#upMsg").textContent = e.message; $("#upMsg").className = "err"; $("#upGo").disabled = false;
     }
